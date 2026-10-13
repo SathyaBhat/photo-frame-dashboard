@@ -14,3 +14,6 @@ __pycache__/
 *.HEIC
 *.heic
 scripts/si006-webview-overlay/build/
+
+# Machine-specific agent notes (frame/server IPs).
+/CLAUDE.local.md
