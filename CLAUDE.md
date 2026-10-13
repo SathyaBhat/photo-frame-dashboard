@@ -71,8 +71,6 @@ Plain JavaScript and CSS bundled by Vite. There is no framework and no build-tim
 - External requests: Google Fonts (`index.html`) and `picsum.photos` (`js/system.js`) need the
   internet. If the frame's internet is blocked at the router, self-host the fonts under `public/`
   and serve photos from the LAN.
-- Unverified: the clock in one screenshot didn't match local time. Check `adb shell date` and
-  `getprop persist.sys.timezone` before debugging time-based views.
 
 ## Replacing mock data with real data
 
