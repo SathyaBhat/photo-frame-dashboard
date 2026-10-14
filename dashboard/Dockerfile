@@ -10,3 +10,4 @@ RUN npx vite build --base /frame/
 FROM nginx:alpine
 
 COPY --from=build /src/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf

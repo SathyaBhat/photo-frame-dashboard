@@ -310,6 +310,7 @@
     }
   }
   App.resetIdle = function () { idleSec = 0; };
+  App.idleSeconds = function () { return idleSec; };
 
   // ------------------------------------------------------------ stage scaling (desktop preview only)
   function fit() {
