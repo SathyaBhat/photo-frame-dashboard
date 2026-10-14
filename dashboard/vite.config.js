@@ -9,5 +9,6 @@ export default defineConfig({
     target: 'chrome106',
     cssTarget: 'chrome61',
   },
-  server: { host: true },
+  // Local dev: forward the live-data API to the frame server (cd server && PORT=8080 node index.js).
+  server: { host: true, proxy: { '/api': 'http://localhost:8080' } },
 });

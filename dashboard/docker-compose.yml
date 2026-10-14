@@ -24,6 +24,32 @@ services:
       - "traefik.http.middlewares.frame-strip.stripprefix.prefixes=/frame"
       - "traefik.http.services.frame.loadbalancer.server.port=80"
 
+  api:
+    build: ./server
+    container_name: frame-api
+    restart: unless-stopped
+    environment:
+      # BOM geohash for the weather location. Required: set BOM_LOCATION in the Dokploy app environment.
+      - BOM_LOCATION=${BOM_LOCATION:?set BOM_LOCATION}
+    networks:
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      # Same hosts as the dashboard, longer path, so these win over the /frame router.
+      - "traefik.http.routers.frame-api.rule=Host(`${FRAME_LAN_HOST}`) && PathPrefix(`/frame/api`)"
+      - "traefik.http.routers.frame-api.entrypoints=web"
+      - "traefik.http.routers.frame-api.priority=100"
+      - "traefik.http.routers.frame-api.middlewares=frame-strip"
+      - "traefik.http.routers.frame-api.service=frame-api"
+      - "traefik.http.routers.frame-api-secure.rule=Host(`${FRAME_TAILNET_HOST}`) && PathPrefix(`/frame/api`)"
+      - "traefik.http.routers.frame-api-secure.entrypoints=websecure"
+      - "traefik.http.routers.frame-api-secure.tls=true"
+      - "traefik.http.routers.frame-api-secure.tls.certresolver=tailscale"
+      - "traefik.http.routers.frame-api-secure.priority=100"
+      - "traefik.http.routers.frame-api-secure.middlewares=frame-strip"
+      - "traefik.http.routers.frame-api-secure.service=frame-api"
+      - "traefik.http.services.frame-api.loadbalancer.server.port=8080"
+
 networks:
   dokploy-network:
     external: true
