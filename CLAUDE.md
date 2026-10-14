@@ -10,7 +10,8 @@ IP, dashboard URL) live in the git-ignored `CLAUDE.local.md`. Never commit them.
 - The README's "Rules we learned the hard way" apply to anything that touches the frame. Reads are
   fine; ask before every write (installs, `pm`, `settings`, `set-home-activity`, reboots).
 - Dashboard edits on this machine need no approval to make and preview. Ask before deploying them.
-- Record each frame change and its undo in `docs/akimart-zn-dp1002.md` before making it.
+- `docs/akimart-zn-dp1002.md` is closed to further changes. Record the owner's custom frame changes
+  in the blog draft, `diagnostics/akimart-rk3326/blog-draft.md`.
 - Upstream PRs come from branches off `origin/main`, never from this fork's `main`. Show the owner the
   diff before pushing or commenting; it is published under their account.
 - No IPs, serials, MACs, Wi-Fi details or whole-disk hashes in committed files. `backups/` and
@@ -38,9 +39,9 @@ IP, dashboard URL) live in the git-ignored `CLAUDE.local.md`. Never commit them.
 - Rebuild the kiosk only when the URL or native code changes:
   `JAVA_HOME=/usr/lib/jvm/java-17-openjdk PATH=$JAVA_HOME/bin:$PATH ANDROID_HOME=$PWD/diagnostics/android-sdk bash diagnostics/kiosk-build/build.sh`,
   then `adb install -r diagnostics/kiosk-build/build/homehq.apk` (same debug key, so it updates in place).
-- Web changes need no APK rebuild: rebuild `dist/`, then reload on the frame with the two-finger
-  menu → **Reload dashboard**, or `adb shell am force-stop com.wesbos.homehq` followed by
-  `adb shell am start -n com.wesbos.homehq/.MainActivity`.
+- Web changes need no APK rebuild: deploy them (see "Build, serve, check"), then reload on the frame
+  with the two-finger menu → **Reload dashboard**, or `adb shell am force-stop com.wesbos.homehq`
+  followed by `adb shell am start -n com.wesbos.homehq/.MainActivity`.
 
 ## Dashboard code (`dashboard/`)
 
@@ -93,13 +94,15 @@ The server is on the owner's tailnet and LAN, so it does the fetching:
 cd dashboard
 npm ci                      # once
 npx vite --host             # live-reload dev server for desktop testing at 1280x800
-npx vite build              # writes dist/, which is what the frame loads
-npx vite preview --host <server-ip> --port 4173 --strictPort   # current, temporary serving
+npx vite build              # local check; the frame does not load this dist/
 ```
 
-`vite preview` is temporary: the frame shows a retrying blank page when it stops. Moving `dist/` to
-a permanent static server on this machine (Caddy or Docker) is still open. If the URL or port
-changes, rebuild the kiosk copy.
+The frame loads the dashboard from a Dokploy app on the server, under the `/frame/` path (details in
+`CLAUDE.local.md`). Dokploy builds `dashboard/docker-compose.yml` from this fork's `main`: the
+`Dockerfile` runs `vite build --base /frame/` and serves `dist/` with nginx behind Dokploy's
+Traefik. The router hostnames come from the app's `FRAME_LAN_HOST` and `FRAME_TAILNET_HOST`
+environment variables in Dokploy, so they stay out of the repo. Pushing the fork's `main` deploys
+(ask first). If the URL changes, rebuild the kiosk copy.
 
 After a change: build, reload the kiosk, take a screenshot, and check
 `adb logcat -d | grep -E "HomeHQ|chromium"` for load errors or uncaught exceptions. For DevTools,

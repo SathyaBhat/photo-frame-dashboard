@@ -1,0 +1,29 @@
+# Deployed by Dokploy on the home server. FRAME_LAN_HOST and FRAME_TAILNET_HOST come from the
+# Dokploy app's environment, so no hostnames are committed here.
+services:
+  frame:
+    build: .
+    container_name: frame
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      # The photo frame loads this over plain HTTP on the LAN.
+      - "traefik.http.routers.frame.rule=Host(`${FRAME_LAN_HOST}`) && PathPrefix(`/frame`)"
+      - "traefik.http.routers.frame.entrypoints=web"
+      - "traefik.http.routers.frame.middlewares=frame-strip"
+      - "traefik.http.routers.frame.service=frame"
+      - "traefik.http.routers.frame-secure.rule=Host(`${FRAME_TAILNET_HOST}`) && PathPrefix(`/frame`)"
+      - "traefik.http.routers.frame-secure.entrypoints=websecure"
+      - "traefik.http.routers.frame-secure.tls=true"
+      - "traefik.http.routers.frame-secure.tls.certresolver=tailscale"
+      - "traefik.http.routers.frame-secure.tls.domains[0].main=${FRAME_TAILNET_HOST}"
+      - "traefik.http.routers.frame-secure.middlewares=frame-strip"
+      - "traefik.http.routers.frame-secure.service=frame"
+      - "traefik.http.middlewares.frame-strip.stripprefix.prefixes=/frame"
+      - "traefik.http.services.frame.loadbalancer.server.port=80"
+
+networks:
+  dokploy-network:
+    external: true
