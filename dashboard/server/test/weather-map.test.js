@@ -77,3 +77,9 @@ test('fewer than 24 hours of forecast is an error, not a half-filled array', fun
   var inp = input(); inp.hourly = inp.hourly.slice(0, 5);
   assert.throws(function () { buildWeather(inp); }, /hourly/);
 });
+
+test("text is BOM's short forecast for today, or null when there is no daily entry", function () {
+  assert.equal(buildWeather(input()).text, 'Mostly clear.');
+  var inp = input(); inp.daily = null;
+  assert.equal(buildWeather(inp).text, null);
+});

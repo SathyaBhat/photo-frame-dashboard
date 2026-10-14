@@ -53,6 +53,7 @@ export function buildWeather(input) {
     feels: obs && num(obs.temp_feels_like) !== null ? num(obs.temp_feels_like) : t[nowHour],
     humidity: obs && typeof obs.humidity === 'number' ? obs.humidity : null,
     wind: obs && obs.wind ? obs.wind.speed_kilometre : null,
+    text: day.short_text || null,
     t: t, c: c, p: p
   };
 }

@@ -145,6 +145,11 @@
       summary = W.t[h] < 12 ? 'Clear and cool' : 'Dry all day';
       advice = W.t[h] < 12 ? 'Jacket weather' : 'Light layers';
     }
+    // Live data carries the Bureau's own one-line forecast; the rain timing moves to the advice line.
+    if (W.text) {
+      advice = summary + '. ' + advice;
+      summary = W.text.replace(/\.$/, '');
+    }
     var labels = { sun: 'Sunny', moon: 'Clear', partly: 'Partly cloudy', cloud: 'Overcast', rain: 'Rain' };
     return { temp: W.t[h], cond: W.c[h], label: labels[W.c[h]], hi: W.hi, lo: W.lo, summary: summary, advice: advice, hour: h };
   };
