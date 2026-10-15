@@ -86,3 +86,11 @@ test('buildBattery maps inverter sensors, discharging is negative', function () 
   assert.equal(buildBattery(states, '', 10, 15), null);
   assert.equal(buildBattery([st('sensor.inv_soc', 'unavailable')], 'sensor.inv', 10, 15), null);
 });
+
+test('buildBattery reads solar from meter 2 (AC-coupled), never negative', function () {
+  var states = [st('sensor.inv_soc', '50'), st('sensor.inv_pv_power', '0'), st('sensor.inv_meter_2_power', '5.026')];
+  assert.equal(buildBattery(states, 'sensor.inv', 10, 15).solarKw, 5.03);
+  states[2] = st('sensor.inv_meter_2_power', '-0.004');
+  assert.equal(buildBattery(states, 'sensor.inv', 10, 15).solarKw, 0);
+  assert.equal(buildBattery([st('sensor.inv_soc', '50')], 'sensor.inv', 10, 15).solarKw, 0);
+});

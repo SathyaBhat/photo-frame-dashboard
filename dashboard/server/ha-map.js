@@ -70,10 +70,11 @@ export function buildBattery(states, prefix, capacityKwh, reserve) {
   if (soc === null) return null;
   var get = function (k) { return numState(states, prefix + '_' + k) || 0; };
   var round = function (n) { return Math.round(n * 100) / 100; };
+  // AC-coupled solar: the pv_* sensors stay at 0, the solar CT meter is "meter 2".
   return {
     soc: Math.round(soc), reserve: reserve, capacityKwh: capacityKwh,
     flowKw: round(get('bat_charge_power') - get('bat_discharge_power')), // negative = discharging
-    solarKw: round(get('pv_power')), homeKw: round(get('loads_power'))
+    solarKw: round(Math.max(0, get('meter_2_power'))), homeKw: round(get('loads_power'))
   };
 }
 
