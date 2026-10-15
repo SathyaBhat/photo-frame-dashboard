@@ -1,12 +1,22 @@
 // Tiny LAN API for the photo frame. Credentials and upstream fetching live here, never in the browser.
 import { createServer } from 'node:http';
 import { buildWeather } from './weather-map.js';
+import { buildHome, buildBattery, buildCommand, BadRequest } from './ha-map.js';
 
 var BOM = 'https://api.weather.bom.gov.au/v1';
 var TTL = 15 * 60 * 1000;
 var PORT = +process.env.PORT || 8080;
 // A BOM geohash (search returns 7 characters, forecasts want 6). Set per deployment, not committed.
 var GEOHASH = (process.env.BOM_LOCATION || '').slice(0, 6);
+// Home Assistant is optional: without HA_URL and HA_TOKEN the /api/home routes answer 503 and the frame keeps its mock home.
+var HA_URL = (process.env.HA_URL || '').replace(/\/+$/, '');
+var HA_TOKEN = process.env.HA_TOKEN || '';
+var HA_HIDE = (process.env.HA_HIDE || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+// Optional solar/battery sensors: HA_BATTERY_PREFIX is the shared entity prefix of the inverter's sensors.
+var HA_BATTERY_PREFIX = process.env.HA_BATTERY_PREFIX || '';
+var HA_BATTERY_KWH = +process.env.HA_BATTERY_KWH || 10;
+var HA_BATTERY_RESERVE = process.env.HA_BATTERY_RESERVE === undefined ? 10 : +process.env.HA_BATTERY_RESERVE;
+var HOME_TTL = 5000;
 if (!GEOHASH) { console.error('Set BOM_LOCATION to a BOM geohash (find one: https://api.weather.bom.gov.au/v1/locations?search=<suburb>)'); process.exit(1); }
 
 async function bom(path, optional) {
@@ -45,6 +55,91 @@ async function weather() {
   }
 }
 
+// Entity -> area, via a template because the REST API has no area registry.
+var AREA_TEMPLATE = "{% set ns = namespace(o={}) %}{% for s in states if s.domain in ['light','switch','media_player'] %}" +
+  "{% set a = area_id(s.entity_id) %}{% if a %}{% set ns.o = dict(ns.o, **{s.entity_id: {'id': a, 'name': area_name(a)}}) %}{% endif %}{% endfor %}{{ ns.o | tojson }}";
+
+async function ha(path, body) {
+  var res = await fetch(HA_URL + '/api/' + path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { authorization: 'Bearer ' + HA_TOKEN, 'content-type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!res.ok) throw new Error('HA ' + path + ' -> HTTP ' + res.status);
+  return res;
+}
+
+async function fetchHome() {
+  var parts = await Promise.all([ha('states').then(function (r) { return r.json(); }), ha('template', { template: AREA_TEMPLATE }).then(function (r) { return r.json(); })]);
+  var home = buildHome({ states: parts[0], areas: parts[1], hide: HA_HIDE });
+  home.battery = buildBattery(parts[0], HA_BATTERY_PREFIX, HA_BATTERY_KWH, HA_BATTERY_RESERVE);
+  return home;
+}
+
+var homeCache = { at: 0, data: null, inflight: null };
+async function home(fresh) {
+  if (!fresh && homeCache.data && Date.now() - homeCache.at < HOME_TTL) return { data: homeCache.data, stale: false, at: homeCache.at };
+  try {
+    homeCache.inflight = homeCache.inflight || fetchHome();
+    homeCache.data = await homeCache.inflight;
+    homeCache.at = Date.now();
+    return { data: homeCache.data, stale: false, at: homeCache.at };
+  } catch (e) {
+    console.error('home refresh failed:', e.message);
+    if (homeCache.data) return { data: homeCache.data, stale: true, at: homeCache.at };
+    throw e;
+  } finally {
+    homeCache.inflight = null;
+  }
+}
+
+function readJSON(req) {
+  return new Promise(function (resolve, reject) {
+    var buf = '';
+    req.on('data', function (c) { buf += c; if (buf.length > 4096) { reject(new BadRequest('body too large')); req.destroy(); } });
+    req.on('end', function () { try { resolve(buf ? JSON.parse(buf) : {}); } catch (e) { reject(new BadRequest('invalid JSON')); } });
+    req.on('error', reject);
+  });
+}
+
+function expect(data, kind, id, cmd, body) {
+  var out = JSON.parse(JSON.stringify(data));
+  if (kind === 'device') out.devices.forEach(function (d) {
+    if (d.id !== id) return;
+    d.on = cmd.service === 'turn_on';
+    if (d.type === 'light' && body.level) d.level = body.level;
+  });
+  if (kind === 'media' && out.media && out.media.id === id) out.media.playing = body.playing;
+  return out;
+}
+
+async function homeRoute(req, res, path) {
+  if (!HA_URL || !HA_TOKEN) return send(res, 503, { error: 'home assistant not configured' });
+  try {
+    if (req.method === 'GET' && path === '/api/home') {
+      var h = await home(false);
+      return send(res, 200, { home: h.data, stale: h.stale, updated: new Date(h.at).toISOString() });
+    }
+    var m = /^\/api\/(device|scene|media)\/([a-z_]+\.[a-z0-9_]+)$/.exec(path);
+    if (req.method === 'POST' && m) {
+      var body = await readJSON(req);
+      var cmd = buildCommand(m[1], m[2], body, (await home(false)).data);
+      if (cmd.service) await ha('services/' + cmd.domain + '/' + cmd.service, cmd.data);
+      await new Promise(function (r) { setTimeout(r, 300); }); // let HA settle before re-reading
+      var after = await home(true);
+      // Many integrations report the new state a moment late: show what was asked for; the next poll reconciles.
+      after.data = expect(after.data, m[1], m[2], cmd, body);
+      return send(res, 200, { home: after.data, stale: after.stale, updated: new Date(after.at).toISOString() });
+    }
+    return send(res, 405, { error: 'method not allowed' });
+  } catch (e) {
+    if (e instanceof BadRequest) return send(res, 400, { error: e.message });
+    console.error('home request failed:', e.message);
+    return send(res, 502, { error: 'home assistant unavailable' });
+  }
+}
+
 function send(res, status, body) {
   res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
   res.end(JSON.stringify(body));
@@ -52,6 +147,7 @@ function send(res, status, body) {
 
 createServer(async function (req, res) {
   var path = new URL(req.url, 'http://x').pathname;
+  if (path === '/api/home' || /^\/api\/(device|scene|media)\//.test(path)) return homeRoute(req, res, path);
   if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
   if (path === '/api/health') return send(res, 200, { ok: true });
   if (path === '/api/weather') {
@@ -63,4 +159,4 @@ createServer(async function (req, res) {
     }
   }
   send(res, 404, { error: 'not found' });
-}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH); });
+}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off')); });

@@ -31,6 +31,14 @@ services:
     environment:
       # BOM geohash for the weather location. Required: set BOM_LOCATION in the Dokploy app environment.
       - BOM_LOCATION=${BOM_LOCATION:?set BOM_LOCATION}
+      # Home Assistant (optional). Without HA_URL and HA_TOKEN the frame keeps its mock home screen.
+      - HA_URL=${HA_URL:-}
+      - HA_TOKEN=${HA_TOKEN:-}
+      - HA_HIDE=${HA_HIDE:-}
+      # Solar/battery: shared entity prefix of the inverter sensors, plus the battery's size and reserve.
+      - HA_BATTERY_PREFIX=${HA_BATTERY_PREFIX:-}
+      - HA_BATTERY_KWH=${HA_BATTERY_KWH:-}
+      - HA_BATTERY_RESERVE=${HA_BATTERY_RESERVE:-}
     networks:
       - dokploy-network
     labels:
