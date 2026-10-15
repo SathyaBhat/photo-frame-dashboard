@@ -128,13 +128,15 @@
     for (var i = 0; i < D.routines.length; i++) if (h >= D.routines[i].from && h < D.routines[i].to) return D.routines[i];
     return D.routines[2];
   };
+  // BOM shows rain icons at 20-40% chance, so a 50% cut-off said 'Dry all day' on a showery day.
+  App.WET_CHANCE = 40;
   App.weatherNow = function () {
     var W = D.weather, h = App.now().getHours();
     var rainAt = -1;
-    for (var i = h; i < 24; i++) if (W.p[i] >= 50) { rainAt = i; break; }
+    for (var i = h; i < 24; i++) if (W.p[i] >= App.WET_CHANCE) { rainAt = i; break; }
     var summary, advice;
     if (rainAt === h) {
-      var stop = h; while (stop < 24 && W.p[stop] >= 50) stop++;
+      var stop = h; while (stop < 24 && W.p[stop] >= App.WET_CHANCE) stop++;
       summary = 'Rain until ' + App.fmt.hour(new Date(2000, 0, 1, stop));
       advice = 'Umbrella weather';
     } else if (rainAt > -1) {
