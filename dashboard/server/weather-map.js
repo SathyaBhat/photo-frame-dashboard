@@ -48,12 +48,22 @@ export function buildWeather(input) {
   if (hi === null) hi = Math.max.apply(null, t);
   if (lo === null) lo = Math.min.apply(null, t);
 
+  // One entry per forecast day, keyed by the local date, for the dashboard's multi-day strip.
+  var days = (input.daily || []).filter(function (d) { return d.icon_descriptor; }).map(function (d) {
+    return {
+      day: localParts(new Date(d.date), tz).day,
+      hi: num(d.temp_max), lo: num(d.temp_min),
+      p: d.rain && typeof d.rain.chance === 'number' ? d.rain.chance : 0,
+      c: iconFor(d.icon_descriptor, false)
+    };
+  });
+
   return {
     hi: hi, lo: lo,
     feels: obs && num(obs.temp_feels_like) !== null ? num(obs.temp_feels_like) : t[nowHour],
     humidity: obs && typeof obs.humidity === 'number' ? obs.humidity : null,
     wind: obs && obs.wind ? obs.wind.speed_kilometre : null,
     text: day.short_text || null,
-    t: t, c: c, p: p
+    t: t, c: c, p: p, days: days
   };
 }

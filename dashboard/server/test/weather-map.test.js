@@ -83,3 +83,19 @@ test("text is BOM's short forecast for today, or null when there is no daily ent
   var inp = input(); inp.daily = null;
   assert.equal(buildWeather(inp).text, null);
 });
+
+test('days lists each forecast day by local date, skipping entries without a forecast', function () {
+  var w = buildWeather(input()), daily = fx('daily');
+  var usable = daily.filter(function (d) { return d.icon_descriptor; });
+  assert.equal(w.days.length, usable.length);
+  assert.equal(w.days[0].day, '2026-10-14'); // 13:00Z the day before is already the 14th in Sydney
+  assert.equal(w.days[0].hi, 19);
+  assert.equal(w.days[0].lo, null);          // BOM leaves today's minimum null in the evening
+  assert.equal(w.days[0].c, iconFor(usable[0].icon_descriptor, false));
+  assert.equal(w.days[0].p, usable[0].rain.chance);
+});
+
+test('days is empty without a daily forecast', function () {
+  var inp = input(); inp.daily = null;
+  assert.deepEqual(buildWeather(inp).days, []);
+});

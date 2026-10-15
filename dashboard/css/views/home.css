@@ -29,6 +29,9 @@
 .h-hr-l { font-size: var(--fs-min); font-weight: 700; color: var(--mute); text-transform: uppercase; }
 .h-hr-i { height: 26px; display: grid; place-items: center; }
 .h-hr b { font-weight: 800; font-stretch: 70%; }
+/* Daily strip: five columns, high with the low beside it. */
+.h-wx-hours--days { grid-template-columns: repeat(5, 1fr); }
+.h-hr small { margin-left: 5px; font-size: 15px; font-weight: 600; color: var(--mute); }
 .h-hr.is-wet .h-hr-i { color: #1F6FEB; }
 
 /* ---- presence */

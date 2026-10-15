@@ -9,22 +9,37 @@
       '<div class="h-date"><b>' + App.fmt.day(n) + '</b> ' + App.fmt.month(n) + ' ' + n.getDate() + '</div>';
   }
 
+  // 6am-6pm: the next few hours. 6pm-6am: the next five days, starting tomorrow once it's evening.
+  var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function dayKey(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function forecastDays(now) {
+    var start = dayKey(now.getHours() >= 18 ? App.addDays(now, 1) : now);
+    return (D.weather.days || []).filter(function (d) { return d.day >= start; }).slice(0, 5);
+  }
+
   function weather() {
-    var w = App.weatherNow();
+    var w = App.weatherNow(), now = App.now();
+    var days = (now.getHours() >= 18 || now.getHours() < 6) ? forecastDays(now) : [];
     var hours = App.hourly(7);
     var tmin = Math.min.apply(null, hours.map(function (h) { return h.t; }));
     var tmax = Math.max.apply(null, hours.map(function (h) { return h.t; }));
+    var strip = days.length
+      ? '<div class="h-wx-hours h-wx-hours--days">' + days.map(function (d) {
+        var y = +d.day.slice(0, 4), m = +d.day.slice(5, 7) - 1, dd = +d.day.slice(8, 10);
+        return '<div class="h-hr' + (d.p >= App.WET_CHANCE ? ' is-wet' : '') + '"><span class="h-hr-l">' + DOW[new Date(y, m, dd).getDay()] + '</span>' +
+          '<span class="h-hr-i">' + App.icon(d.c, 22) + '</span><b>' + (d.hi === null ? '–' : d.hi + '°') + '<small>' + (d.lo === null ? '' : d.lo + '°') + '</small></b></div>';
+      }).join('') + '</div>'
+      : '<div class="h-wx-hours">' + hours.map(function (h) {
+        var lift = tmax === tmin ? 0 : Math.round((h.t - tmin) / (tmax - tmin) * 8);
+        return '<div class="h-hr' + (h.p >= App.WET_CHANCE ? ' is-wet' : '') + '"><span class="h-hr-l">' + h.label + '</span>' +
+          '<span class="h-hr-i" style="transform:translateY(' + -lift + 'px)">' + App.icon(h.c, 22) + '</span><b>' + h.t + '°</b></div>';
+      }).join('') + '</div>';
     return '<div class="h-wx-top">' +
       '<span class="h-wx-icon">' + App.icon(w.cond, 60) + '</span>' +
       '<span class="h-wx-temp num">' + w.temp + '°</span>' +
       '<span class="h-wx-meta"><b>' + w.label + '</b><span>H ' + w.hi + '°  L ' + w.lo + '°</span></span>' +
       '</div>' +
-      '<div class="h-wx-say"><b>' + w.summary + '.</b> ' + w.advice + '.</div>' +
-      '<div class="h-wx-hours">' + hours.map(function (h) {
-        var lift = tmax === tmin ? 0 : Math.round((h.t - tmin) / (tmax - tmin) * 8);
-        return '<div class="h-hr' + (h.p >= App.WET_CHANCE ? ' is-wet' : '') + '"><span class="h-hr-l">' + h.label + '</span>' +
-          '<span class="h-hr-i" style="transform:translateY(' + -lift + 'px)">' + App.icon(h.c, 22) + '</span><b>' + h.t + '°</b></div>';
-      }).join('') + '</div>';
+      '<div class="h-wx-say"><b>' + w.summary + '.</b> ' + w.advice + '.</div>' + strip;
   }
 
   function presence() {
