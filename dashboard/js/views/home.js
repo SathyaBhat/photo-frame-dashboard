@@ -37,36 +37,24 @@
   }
 
   function hero() {
-    var e = App.nextEvent(), now = App.now();
-    if (!e) {
-      var tomorrow = App.timedOn(App.addDays(now, 1))[0];
-      return '<div class="h-hero h-hero--empty" data-go="calendar">' +
-        '<div class="label label--light">Rest of today</div>' +
-        '<div class="h-hero-title serif">Nothing else scheduled.<br><i>Enjoy the quiet.</i></div>' +
-        (tomorrow ? '<div class="h-hero-meta">Tomorrow starts with <b>' + App.esc(tomorrow.title) + '</b> at ' + App.fmt.time(tomorrow.start) + '</div>' : '') +
-        '</div>';
-    }
-    var p = App.evColor(e);
-    var mins = (e.start - now) / 60000;
-    var leave = (App.leaveBy(e) - now) / 60000;
-    var who = e.people.map(function (id) { return App.person(id).name; });
-    var whoText = App.isFamily(e) ? 'Everyone' : who.join(' + ');
-    var big = mins < 100
-      ? '<div class="h-hero-count num">' + Math.round(mins) + '<small>min</small></div>'
-      : '<div class="h-hero-count num">' + App.fmt.time(e.start, false) + '<small>' + App.fmt.ampm(e.start) + '</small></div>';
-    var leavePill = '';
-    if (e.travel) {
-      leavePill = leave <= 0
-        ? '<span class="pill pill--alert"><i class="pulse"></i>Leave now</span>'
-        : '<span class="pill' + (leave <= 15 ? ' pill--soon' : '') + '">' + App.icon('car', 20) + 'Leave in ' + App.fmt.mins(leave) + '</span>';
-    }
-    return '<button class="h-hero" style="' + App.pstyle(p) + '" data-ev="' + e.id + '">' +
+    var b = D.battery;
+    var usable = Math.max(0, b.soc - b.reserve) / 100 * b.capacityKwh;
+    var title = b.flowKw < 0 ? 'Powering home' : (b.flowKw > 0 ? 'Charging' : 'On standby');
+    var meta = b.flowKw < 0
+      ? Math.abs(b.flowKw).toFixed(1) + ' kW out · about ' + App.fmt.mins(usable / -b.flowKw * 60) + ' left'
+      : (b.flowKw > 0 ? b.flowKw.toFixed(1) + ' kW in · full in about ' + App.fmt.mins((100 - b.soc) / 100 * b.capacityKwh / b.flowKw * 60) : 'No power flowing');
+    var low = b.soc <= b.reserve + 10;
+    var style = low ? '--c:#FF9500;--c-ink:#111111' : '--c:#00A36C;--c-ink:#FFFFFF';
+    return '<button class="h-hero" style="' + style + '" data-go="control">' +
       '<div class="h-hero-main">' +
-      '  <div class="label label--on">Next up · ' + App.esc(whoText) + '</div>' +
-      '  <div class="h-hero-title serif">' + App.esc(e.title) + '</div>' +
-      '  <div class="h-hero-meta">' + App.fmt.range(e.start, e.end) + (e.loc ? ' · ' + App.esc(e.loc) : '') + '</div>' +
-      '  <div class="h-hero-foot">' + (e.people.length > 1 ? App.dots(e.people, 22) : '') + leavePill + '</div>' +
-      '</div>' + big + '</button>';
+      '  <div class="label label--on">Home battery</div>' +
+      '  <div class="h-hero-title serif">' + title + '</div>' +
+      '  <div class="h-hero-meta">' + meta + '</div>' +
+      '  <div class="h-hero-foot"><span class="h-bat-bar"><i style="width:' + b.soc + '%"></i></span>' +
+      '<span class="pill">' + App.icon('bolt', 20) + 'Solar ' + b.solarKw.toFixed(1) + ' kW</span>' +
+      '<span class="pill">Home ' + b.homeKw.toFixed(1) + ' kW</span></div>' +
+      '</div>' +
+      '<div class="h-hero-count num">' + Math.round(b.soc) + '<small>%</small></div></button>';
   }
 
   function lanes() {
@@ -179,7 +167,6 @@
   App.on('minute', function (n) {
     if (!V.el || !V.el.firstChild) return;
     V.el.querySelector('.h-clock').innerHTML = clock();
-    V.el.querySelector('.h-hero-slot').innerHTML = hero();
     if (n.getMinutes() === 0) { V.el.querySelector('.h-weather').innerHTML = weather(); V.el.querySelector('.h-lanes').innerHTML = lanes(); }
   });
   App.on('data', function () { if (App.current === 'home') paint(); });

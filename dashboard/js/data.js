@@ -243,6 +243,8 @@ window.DATA = (function () {
     { id: 'y-flood', room: 'yard', type: 'light', name: 'Floodlight', on: false, level: 100 }
   ];
   var climate = { current: 20.5, set: 21.5, mode: 'heat', humidity: 42, outside: 14 };
+  // Home battery (mock). flowKw: negative = discharging, positive = charging.
+  var battery = { soc: 78, reserve: 20, capacityKwh: 13.5, flowKw: -1.4, solarKw: 0.6, homeKw: 2.0 };
   var media = { room: 'Kitchen', title: 'Harvest Moon', artist: 'Neil Young', playing: true, volume: 35, seed: 'harvest-vinyl' };
   var cameras = [
     { id: 'c-front', name: 'Front Porch', seed: 'porch-steps' },
@@ -342,7 +344,7 @@ window.DATA = (function () {
     events: events, busyExtras: busyExtras,
     routines: routines, chores: chores, stars: stars, week: week,
     stores: stores, catOrder: catOrder, groceries: groceries, catalog: catalog, usuals: usuals,
-    rooms: rooms, devices: devices, climate: climate, media: media, cameras: cameras, scenes: scenes,
+    rooms: rooms, devices: devices, climate: climate, battery: battery, media: media, cameras: cameras, scenes: scenes,
     weather: weather, photos: photos, agents: agents,
     _gid: function () { return 'g' + (++gid); },
     _eid: function () { return 'e' + (++n); }
