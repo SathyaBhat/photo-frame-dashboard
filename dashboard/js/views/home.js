@@ -57,7 +57,7 @@
     var left = b.soc / 100 * b.capacityKwh;
     var title = b.flowKw < 0 ? 'Powering home' : (b.flowKw > 0 ? 'Charging' : 'On standby');
     var meta = b.flowKw < 0
-      ? Math.abs(b.flowKw).toFixed(1) + ' kW out · about ' + App.fmt.mins(usable / -b.flowKw * 60) + ' left'
+      ? Math.abs(b.flowKw).toFixed(1) + ' kW out · about ' + left.toFixed(1) + ' kWh / ' + App.fmt.mins(usable / -b.flowKw * 60) + ' left'
       : (b.flowKw > 0 ? b.flowKw.toFixed(1) + ' kW in · full in about ' + App.fmt.mins((100 - b.soc) / 100 * b.capacityKwh / b.flowKw * 60) : 'No power flowing');
     var low = b.soc <= b.reserve + 10;
     var style = low ? '--c:#FF9500;--c-ink:#111111' : '--c:#00A36C;--c-ink:#FFFFFF';
@@ -67,7 +67,6 @@
       '  <div class="h-hero-title serif">' + title + '</div>' +
       '  <div class="h-hero-meta">' + meta + '</div>' +
       '  <div class="h-hero-foot"><span class="h-bat-bar"><i style="width:' + b.soc + '%"></i></span>' +
-      '<span class="pill">' + left.toFixed(1) + ' of ' + +b.capacityKwh.toFixed(1) + ' kWh</span>' +
       '<span class="pill">' + App.icon('bolt', 20) + 'Solar ' + b.solarKw.toFixed(1) + ' kW</span>' +
       '<span class="pill">Home ' + b.homeKw.toFixed(1) + ' kW</span></div>' +
       '</div>' +
