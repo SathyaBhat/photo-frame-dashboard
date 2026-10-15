@@ -74,7 +74,8 @@ export function buildBattery(states, prefix, capacityKwh, reserve) {
   return {
     soc: Math.round(soc), reserve: reserve, capacityKwh: capacityKwh,
     flowKw: round(get('bat_charge_power') - get('bat_discharge_power')), // negative = discharging
-    solarKw: round(Math.max(0, get('meter_2_power'))), homeKw: round(get('loads_power'))
+    solarKw: round(Math.max(0, get('meter_2_power'))), homeKw: round(get('loads_power')),
+    gridKw: round(get('grid_consumption_power') - get('feedin_power')) // positive = importing
   };
 }
 

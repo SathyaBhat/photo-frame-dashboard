@@ -61,7 +61,7 @@
       : (b.flowKw > 0 ? b.flowKw.toFixed(1) + ' kW in · full in about ' + App.fmt.mins((100 - b.soc) / 100 * b.capacityKwh / b.flowKw * 60) : 'No power flowing');
     var low = b.soc <= b.reserve + 10;
     var style = low ? '--c:#FF9500;--c-ink:#111111' : '--c:#00A36C;--c-ink:#FFFFFF';
-    return '<button class="h-hero" style="' + style + '" data-go="control">' +
+    return '<button class="h-hero" style="' + style + '" data-go="energy">' +
       '<div class="h-hero-main">' +
       '  <div class="label label--on">Home battery</div>' +
       '  <div class="h-hero-title serif">' + title + '</div>' +

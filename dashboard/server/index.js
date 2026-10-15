@@ -1,6 +1,7 @@
 // Tiny LAN API for the photo frame. Credentials and upstream fetching live here, never in the browser.
 import { createServer } from 'node:http';
 import { buildWeather } from './weather-map.js';
+import { buildEnergy, parseHistory, dayStart, localDay, nextDay } from './energy-map.js';
 import { buildHome, buildBattery, buildCommand, BadRequest } from './ha-map.js';
 
 var BOM = 'https://api.weather.bom.gov.au/v1';
@@ -94,6 +95,33 @@ async function home(fresh) {
   }
 }
 
+// Energy history for the solar/battery page: a rolling 24 hours, or one local calendar day (?day=YYYY-MM-DD).
+var haZone;
+var energyCache = {};
+async function energy(day) {
+  if (!HA_BATTERY_PREFIX) throw new BadRequest('no battery configured');
+  if (!haZone) haZone = (await (await ha('config')).json()).time_zone;
+  var now = Date.now(), today = localDay(now, haZone), start, end;
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new BadRequest('day must be YYYY-MM-DD');
+  if (day && day < today) {
+    start = dayStart(day, haZone);
+    end = dayStart(nextDay(day), haZone);
+  } else { // no day, today, or the future: the last 24 hours
+    day = null;
+    end = Math.floor(now / 300000) * 300000; start = end - 864e5;
+  }
+  var key = day || 'now', hit = energyCache[key];
+  if (hit && now - hit.at < (day ? 10 * 60000 : 60000)) return hit.data;
+  var ids = ['meter_2_power', 'loads_power', 'bat_discharge_power', 'bat_charge_power', 'grid_consumption_power', 'feedin_power']
+    .map(function (k) { return HA_BATTERY_PREFIX + '_' + k; }).join(',');
+  var res = await ha('history/period/' + new Date(start).toISOString() + '?end_time=' + new Date(end).toISOString() + '&filter_entity_id=' + ids + '&minimal_response&no_attributes');
+  var data = buildEnergy({ start: start, end: end, history: parseHistory(await res.json(), HA_BATTERY_PREFIX) });
+  data.zone = haZone; data.today = today; data.day = day;
+  if (Object.keys(energyCache).length > 20) energyCache = {};
+  energyCache[key] = { at: now, data: data };
+  return data;
+}
+
 function readJSON(req) {
   return new Promise(function (resolve, reject) {
     var buf = '';
@@ -147,6 +175,16 @@ function send(res, status, body) {
 
 createServer(async function (req, res) {
   var path = new URL(req.url, 'http://x').pathname;
+  if (path === '/api/energy' && req.method === 'GET') {
+    if (!HA_URL || !HA_TOKEN) return send(res, 503, { error: 'home assistant not configured' });
+    try {
+      return send(res, 200, { energy: await energy(new URL(req.url, 'http://x').searchParams.get('day')) });
+    } catch (e) {
+      if (e instanceof BadRequest) return send(res, 400, { error: e.message });
+      console.error('energy request failed:', e.message);
+      return send(res, 502, { error: 'home assistant unavailable' });
+    }
+  }
   if (path === '/api/home' || /^\/api\/(device|scene|media)\//.test(path)) return homeRoute(req, res, path);
   if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
   if (path === '/api/health') return send(res, 200, { ok: true });

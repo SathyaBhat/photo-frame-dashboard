@@ -82,7 +82,7 @@ test('buildCommand maps writes and rejects anything not discovered', function ()
 test('buildBattery maps inverter sensors, discharging is negative', function () {
   var states = [st('sensor.inv_soc', '33'), st('sensor.inv_pv_power', '0.0'), st('sensor.inv_loads_power', '0.873'),
     st('sensor.inv_bat_charge_power', '0.0'), st('sensor.inv_bat_discharge_power', '0.869')];
-  assert.deepEqual(buildBattery(states, 'sensor.inv', 10, 15), { soc: 33, reserve: 15, capacityKwh: 10, flowKw: -0.87, solarKw: 0, homeKw: 0.87 });
+  assert.deepEqual(buildBattery(states, 'sensor.inv', 10, 15), { soc: 33, reserve: 15, capacityKwh: 10, flowKw: -0.87, solarKw: 0, homeKw: 0.87, gridKw: 0 });
   assert.equal(buildBattery(states, '', 10, 15), null);
   assert.equal(buildBattery([st('sensor.inv_soc', 'unavailable')], 'sensor.inv', 10, 15), null);
 });

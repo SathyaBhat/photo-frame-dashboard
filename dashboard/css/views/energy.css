@@ -1,0 +1,36 @@
+/* Energy — solar, battery, grid */
+.energy { height: 100%; display: flex; flex-direction: column; gap: 12px; }
+.en-top { display: flex; align-items: flex-end; justify-content: space-between; flex: none; }
+.en-top h1 { font-size: 56px; line-height: .95; }
+.en-nav { display: flex; align-items: center; gap: 10px; }
+.en-nav .icon-btn:disabled { opacity: .3; }
+.en-day { min-width: 190px; text-align: center; font-size: 22px; font-weight: 800; font-stretch: 80%; text-transform: uppercase; letter-spacing: .05em; }
+.en-now { margin-left: 8px; }
+.en-now.is-on { background: var(--ink); color: var(--paper); }
+
+.en-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; flex: none; }
+.en-tile { background: var(--card); border-radius: var(--r); padding: 12px 16px; border-left: 8px solid var(--c); display: flex; flex-direction: column; gap: 2px; }
+.en-tile .num { font-size: 44px; line-height: 1; }
+.en-tile .num small { font-size: 20px; font-weight: 700; color: var(--mute); }
+.en-tile > small { font-size: var(--fs-min); font-weight: 700; color: var(--mute); text-transform: uppercase; letter-spacing: .05em; }
+
+.en-card { background: var(--card); border-radius: var(--r); padding: 12px 14px 10px; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.en-chart { flex: 1; min-height: 0; position: relative; }
+.en-svg { width: 100%; height: 100%; display: block; touch-action: none; }
+.en-grid { stroke: var(--line); stroke-width: 1; opacity: .7; }
+.en-zero { stroke: var(--ink-2); stroke-width: 1.5; }
+.en-tick { font-size: 15px; fill: var(--mute); font-weight: 700; }
+.en-home { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+.en-cursor { stroke: var(--ink); stroke-width: 2; display: none; }
+.en-hit { fill: transparent; }
+.en-msg { height: 100%; display: grid; place-items: center; color: var(--mute); font-size: 22px; font-weight: 700; }
+.en-readout { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 17px; min-height: 26px; }
+.en-readout > b { font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; margin-right: 4px; }
+.en-readout i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; }
+.en-readout .en-home-key { background: var(--ink); height: 4px; vertical-align: middle; }
+.en-readout .num { font-size: 20px; }
+
+.en-totals { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; flex: none; min-height: 58px; }
+.en-totals > div { display: flex; flex-direction: column; }
+.en-totals .num { font-size: 30px; line-height: 1.05; }
+.en-totals .num small { font-size: 16px; font-weight: 700; color: var(--mute); }
