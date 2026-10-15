@@ -54,6 +54,7 @@
   function hero() {
     var b = D.battery;
     var usable = Math.max(0, b.soc - b.reserve) / 100 * b.capacityKwh;
+    var left = b.soc / 100 * b.capacityKwh;
     var title = b.flowKw < 0 ? 'Powering home' : (b.flowKw > 0 ? 'Charging' : 'On standby');
     var meta = b.flowKw < 0
       ? Math.abs(b.flowKw).toFixed(1) + ' kW out · about ' + App.fmt.mins(usable / -b.flowKw * 60) + ' left'
@@ -66,6 +67,7 @@
       '  <div class="h-hero-title serif">' + title + '</div>' +
       '  <div class="h-hero-meta">' + meta + '</div>' +
       '  <div class="h-hero-foot"><span class="h-bat-bar"><i style="width:' + b.soc + '%"></i></span>' +
+      '<span class="pill">' + left.toFixed(1) + ' of ' + +b.capacityKwh.toFixed(1) + ' kWh</span>' +
       '<span class="pill">' + App.icon('bolt', 20) + 'Solar ' + b.solarKw.toFixed(1) + ' kW</span>' +
       '<span class="pill">Home ' + b.homeKw.toFixed(1) + ' kW</span></div>' +
       '</div>' +

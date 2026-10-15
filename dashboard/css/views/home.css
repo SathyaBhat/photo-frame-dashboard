@@ -57,8 +57,8 @@
 .h-hero-meta { font-size: 19px; opacity: .88; }
 .h-hero-foot { margin-top: auto; display: flex; align-items: center; gap: 14px; }
 .h-hero-foot .dots i { box-shadow: 0 0 0 3px var(--c); }
-.h-hero-count { font-size: 150px; line-height: .78; letter-spacing: -.04em; text-align: right; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
-.h-hero-count small { font-size: 22px; letter-spacing: .1em; text-transform: uppercase; font-stretch: 80%; margin-top: 10px; }
+.h-hero-count { font-size: 150px; line-height: .78; letter-spacing: -.04em; text-align: right; display: flex; align-items: flex-start; justify-content: flex-end; }
+.h-hero-count small { font-size: 56px; letter-spacing: 0; line-height: 1; margin: 8px 0 0 6px; }
 .h-bat-bar { flex: 1; height: 14px; border-radius: 7px; background: rgba(255, 255, 255, .3); overflow: hidden; }
 .h-bat-bar i { display: block; height: 100%; border-radius: 7px; background: var(--c-ink); }
 .h-hero--empty { background: var(--ink); color: var(--paper); flex-direction: column; justify-content: center; }
