@@ -12,6 +12,19 @@
     Object.keys(patch).forEach(function (k) { before[k] = d[k]; d[k] = patch[k]; });
     V.pending[id] = true;
     changed([id]);
+    if (D.homeLive) {
+      var body = { on: d.on };
+      if (d.type === 'light' && d.on) body.level = d.level;
+      App.homeWrite('device/' + encodeURIComponent(id), body).then(function () {
+        delete V.pending[id];
+      }, function () {
+        delete V.pending[id];
+        Object.keys(before).forEach(function (k) { d[k] = before[k]; });
+        App.toast('Couldn’t reach <b>' + App.esc(d.name) + '</b> · it may be offline', { tone: 'error', icon: 'bolt' });
+        changed([id]);
+      });
+      return;
+    }
     setTimeout(function () {
       delete V.pending[id];
       if (d.flaky && !(opts && opts.silent)) {
@@ -25,24 +38,31 @@
   // ------------------------------------------------------------ tiles
   function tile(d) {
     var pend = V.pending[d.id] ? '<i class="pend"></i>' : '';
+    var off = d.offline ? ' is-offline' : '';
+    if (d.type === 'switch') {
+      return '<div class="tile tile--switch' + (d.on ? ' is-on' : '') + off + '" data-dev="' + d.id + '">' + pend +
+        '<span class="tile-icon">' + App.icon('bolt', 28) + '</span>' +
+        '<span class="tile-name">' + App.esc(d.name) + '</span>' +
+        '<span class="tile-state num">' + (d.offline ? 'Offline' : d.on ? 'On' : 'Off') + '</span></div>';
+    }
     if (d.type === 'light') {
-      return '<div class="tile tile--light' + (d.on ? ' is-on' : '') + '" data-dev="' + d.id + '" style="--lvl:' + (d.on ? d.level : 0) + '%">' +
+      return '<div class="tile tile--light' + (d.on ? ' is-on' : '') + off + '" data-dev="' + d.id + '" style="--lvl:' + (d.on ? d.level : 0) + '%">' +
         '<span class="tile-fill"></span>' + pend +
         '<span class="tile-icon">' + App.icon('bulb', 28) + '</span>' +
-        '<span class="tile-name">' + d.name + '</span>' +
-        '<span class="tile-state num">' + (d.on ? d.level + '%' : 'Off') + '</span></div>';
+        '<span class="tile-name">' + App.esc(d.name) + '</span>' +
+        '<span class="tile-state num">' + (d.offline ? 'Offline' : d.on ? d.level + '%' : 'Off') + '</span></div>';
     }
     if (d.type === 'blind') {
       return '<div class="tile tile--blind' + (d.pos > 0 ? ' is-on' : '') + '" data-dev="' + d.id + '" style="--lvl:' + d.pos + '%">' +
         '<span class="tile-fill"></span>' + pend +
         '<span class="tile-icon">' + App.icon('blinds', 28) + '</span>' +
-        '<span class="tile-name">' + d.name + '</span>' +
+        '<span class="tile-name">' + App.esc(d.name) + '</span>' +
         '<span class="tile-state num">' + (d.pos === 0 ? 'Closed' : d.pos === 100 ? 'Open' : d.pos + '% open') + '</span></div>';
     }
     if (d.type === 'lock') {
       return '<div class="tile tile--lock' + (d.locked ? '' : ' is-warn') + '" data-dev="' + d.id + '">' + pend +
         '<span class="tile-icon">' + App.icon(d.locked ? 'lock' : 'unlock', 28) + '</span>' +
-        '<span class="tile-name">' + d.name + '</span>' +
+        '<span class="tile-name">' + App.esc(d.name) + '</span>' +
         '<span class="tile-state">' + (d.locked ? 'Locked<small>Hold to unlock</small>' : 'Unlocked<small>Tap to lock</small>') + '</span>' +
         '<svg class="hold-ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/></svg></div>';
     }
@@ -50,13 +70,20 @@
       var label = { closed: 'Closed', open: 'Open', opening: 'Opening…', closing: 'Closing…' }[d.state];
       return '<div class="tile tile--garage' + (d.state !== 'closed' ? ' is-warn' : '') + (/ing$/.test(d.state) ? ' is-moving' : '') + '" data-dev="' + d.id + '">' + pend +
         '<span class="tile-icon">' + App.icon('garage', 28) + '</span>' +
-        '<span class="tile-name">' + d.name + '</span>' +
+        '<span class="tile-name">' + App.esc(d.name) + '</span>' +
         '<span class="tile-state">' + label + '</span></div>';
     }
     return '';
   }
 
   function summary() {
+    if (D.homeLive) {
+      var on = D.devices.filter(function (d) { return d.type === 'light' && d.on; });
+      var mm = D.media;
+      return '<button class="sum' + (on.length ? ' sum--warm' : '') + '" data-sum="lights"><span class="label">Lights</span><b class="num">' + on.length + '</b><small>on in ' + unique(on.map(function (l) { return l.room; })).length + ' rooms</small></button>' +
+        (mm ? '<button class="sum" data-sum="media"><span class="label">Media</span><b class="num">' + (mm.playing ? 'Playing' : 'Paused') + '</b><small>' + App.esc(mm.room) + '</small></button>' : '') +
+        (D.homeOffline ? '<span class="sum sum--warn"><span class="label">Home Assistant</span><b class="num">Offline</b><small>showing last known</small></span>' : '');
+    }
     var lights = D.devices.filter(function (d) { return d.type === 'light' && d.on; });
     var unlocked = D.devices.filter(function (d) { return d.type === 'lock' && !d.locked; });
     var garage = dev('g-door');
@@ -71,7 +98,7 @@
 
   function scenes() {
     return D.scenes.map(function (s) {
-      return '<button class="scene' + (V.scene === s.id ? ' is-on' : '') + '" data-scene="' + s.id + '">' + App.icon(s.icon, 26) + '<span>' + s.name + '</span></button>';
+      return '<button class="scene' + (V.scene === s.id ? ' is-on' : '') + '" data-scene="' + s.id + '">' + App.icon(s.icon, 26) + '<span>' + App.esc(s.name) + '</span></button>';
     }).join('');
   }
 
@@ -90,6 +117,7 @@
 
   function climate() {
     var c = D.climate;
+    if (!c) return '';
     var verb = c.mode === 'off' ? 'Off' : c.set > c.current ? 'Heating' : c.set < c.current ? 'Cooling' : 'Holding';
     return '<div class="label label--light">Climate · Main floor</div>' +
       '<div class="th-main"><button class="th-btn" data-temp="-0.5" aria-label="Cooler">' + App.icon('minus', 36) + '</button>' +
@@ -102,6 +130,7 @@
   }
 
   function cams() {
+    if (!D.cameras.length) return '';
     return '<div class="label">Cameras · snapshots every 20s</div><div class="cams">' + D.cameras.slice(0, 2).map(function (c) {
       return '<button class="cam" data-cam="' + c.id + '"><img src="' + App.img(c.seed, 400, 250) + '" alt=""><span class="cam-name">' + c.name + '</span><span class="cam-age">' + V.camAge + 's ago</span></button>';
     }).join('') + '</div>';
@@ -109,8 +138,9 @@
 
   function media() {
     var m = D.media;
-    return '<img class="np-art" src="' + App.img(m.seed, 160, 160) + '" alt="">' +
-      '<div class="np-text"><span class="label">' + m.room + '</span><b>' + m.title + '</b><span>' + m.artist + '</span></div>' +
+    if (!m) return '';
+    return (m.seed ? '<img class="np-art" src="' + App.img(m.seed, 160, 160) + '" alt="">' : '') +
+      '<div class="np-text"><span class="label">' + App.esc(m.room) + '</span><b>' + App.esc(m.title) + '</b><span>' + App.esc(m.artist) + '</span></div>' +
       '<button class="np-btn" data-play aria-label="Play/Pause">' + App.icon(m.playing ? 'pause' : 'play', 30) + '</button>';
   }
 
@@ -189,7 +219,9 @@
   function bindTile(t) {
     (function () {
       var d = dev(t.dataset.dev);
+      if (d.offline) return;
       if (d.type === 'light' || d.type === 'blind') sliderTile(t, d);
+      if (d.type === 'switch') t.addEventListener('click', function () { V.scene = null; App.setDevice(d.id, { on: !d.on }); });
       if (d.type === 'lock') {
         App.hold(t, 1000, {
           enabled: function () { return d.locked; },
@@ -259,6 +291,11 @@
         var off = s.querySelector('[data-alloff]'), lk = s.querySelector('[data-lockall]');
         if (off) off.onclick = function () {
           var prev = D.devices.filter(function (d) { return d.type === 'light' && d.on; });
+          if (D.homeLive) {
+            close();
+            prev.forEach(function (d) { App.setDevice(d.id, { on: false }); });
+            return App.toast('Turned off ' + prev.length + ' lights', { icon: 'bulb' });
+          }
           prev.forEach(function (d) { d.on = false; });
           close(); changed(prev.map(function (d) { return d.id; }));
           App.toast('Turned off ' + prev.length + ' lights', { icon: 'bulb', undo: function () { prev.forEach(function (d) { d.on = true; }); changed(prev.map(function (d) { return d.id; })); } });
@@ -275,6 +312,17 @@
 
   function applyScene(id) {
     var s = D.scenes.filter(function (x) { return x.id === id; })[0];
+    if (s.live) {
+      V.scene = id;
+      paintPart('.hc-scenes', scenes());
+      return App.homeWrite('scene/' + encodeURIComponent(id), {}).then(function () {
+        App.toast('<b>' + App.esc(s.name) + '</b> scene on', { icon: s.icon });
+      }, function () {
+        V.scene = null;
+        paintPart('.hc-scenes', scenes());
+        App.toast('Couldn’t run <b>' + App.esc(s.name) + '</b>', { tone: 'error', icon: 'bolt' });
+      });
+    }
     var snapshot = D.devices.map(function (d) { return Object.assign({}, d); });
     var prevScene = V.scene;
     Object.keys(s.set).forEach(function (k) {
@@ -319,7 +367,14 @@
     }
     if ((t = e.target.closest('[data-tmode]'))) { D.climate.mode = t.dataset.tmode; return climateChanged(); }
     if ((t = e.target.closest('[data-cam]'))) return App.cameraSheet(D.cameras.filter(function (c) { return c.id === t.dataset.cam; })[0]);
-    if ((t = e.target.closest('[data-play]'))) { D.media.playing = !D.media.playing; paintPart('.hc-media', media()); paintPart('.hc-sum', summary()); }
+    if ((t = e.target.closest('[data-play]'))) {
+      var m = D.media, was = m.playing;
+      m.playing = !was; paintPart('.hc-media', media()); paintPart('.hc-sum', summary());
+      if (D.homeLive) App.homeWrite('media/' + encodeURIComponent(m.id), { playing: m.playing }).catch(function () {
+        m.playing = was; paintPart('.hc-media', media()); paintPart('.hc-sum', summary());
+        App.toast('Couldn’t reach <b>' + App.esc(m.room) + '</b>', { tone: 'error', icon: 'bolt' });
+      });
+    }
   }
   function climateChanged() { paintPart('.hc-climate', climate()); paintPart('.hc-sum', summary()); App.emit('data'); }
 

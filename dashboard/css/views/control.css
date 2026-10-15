@@ -104,3 +104,7 @@
 .cam-big .tk-live { left: 20px; top: 20px; }
 .cam-big-bar .label { position: absolute; left: 24px; bottom: 20px; }
 .is-pulse { box-shadow: 0 0 0 6px var(--warm); }
+
+/* Home Assistant devices */
+.tile--switch.is-on { background: #FFF1D0; }
+.tile.is-offline { opacity: .45; pointer-events: none; }

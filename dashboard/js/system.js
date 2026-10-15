@@ -25,6 +25,7 @@
 
   var doorbellTimer;
   App.doorbell = function () {
+    if (D.homeLive) return; // demo only: needs the mock camera and front door
     var now = App.now();
     var el = takeover(
       '<div class="tk-cam"><img src="' + img('visitor-porch', 1280, 800) + '" alt=""><span class="tk-live"><i></i>LIVE · Front Porch</span></div>' +
@@ -98,6 +99,7 @@
   };
 
   App.garageOpenAlert = function () {
+    if (D.homeLive) return;
     App.setDevice('g-door', { state: 'open' });
     App.banner({
       icon: 'garage', title: 'Garage open for 15 min', sub: 'No one is in the garage · Wes is 12 min away',
@@ -107,6 +109,7 @@
   };
 
   App.packageNotice = function () {
+    if (D.homeLive) return;
     App.banner({
       tone: 'ink', icon: 'box', title: 'Package delivered', sub: 'Front porch · ' + App.fmt.time(App.now()),
       action: 'View camera', dismiss: 'OK', ms: 9000,

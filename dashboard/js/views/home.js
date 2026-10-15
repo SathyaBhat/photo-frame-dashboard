@@ -123,6 +123,11 @@
 
   function status() {
     var lights = D.devices.filter(function (d) { return d.type === 'light' && d.on; }).length;
+    if (D.homeLive) {
+      return '<div class="label">Home</div>' +
+        '<div class="h-st-row">' + App.icon('bulb', 24) + '<b class="num">' + lights + '</b><span>lights on</span></div>' +
+        (D.homeOffline ? '<div class="h-st-row is-warn">' + App.icon('bolt', 24) + '<span>Home Assistant offline</span></div>' : '');
+    }
     var unlocked = D.devices.filter(function (d) { return d.type === 'lock' && !d.locked; });
     var garage = D.devices.filter(function (d) { return d.type === 'garage'; })[0];
     var secure = !unlocked.length && garage.state === 'closed';
