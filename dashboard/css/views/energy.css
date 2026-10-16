@@ -39,3 +39,4 @@
 .en-totals > div { display: flex; flex-direction: column; }
 .en-totals .num { font-size: 30px; line-height: 1.05; }
 .en-totals .num small { font-size: 16px; font-weight: 700; color: var(--mute); }
+.en-key b { margin: 0 3px 0 7px; }
