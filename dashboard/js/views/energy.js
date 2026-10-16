@@ -4,9 +4,12 @@
   var D = window.DATA;
   var V = { el: null, day: null, data: null, error: false, loading: false, at: 0, timer: null, sel: null };
   var W = 1150, H = 300, PL = 46, PB = 26, PT = 8, STALE_MS = 60 * 1000;
-  // Stack order above zero, then below zero. Colours follow Home Assistant's energy dashboard.
-  var UP = [['solar', 'Solar', '#F5A400'], ['discharge', 'Battery out', '#8E5CF7'], ['import', 'Grid in', '#3B6FFF']];
-  var DOWN = [['charge', 'Battery in', '#B38BFF'], ['export', 'Grid out', '#2BB3A3']];
+  // Every series is drawn from zero on one positive axis (they overlap rather than stack).
+  // Charging and discharge never happen together, and neither do grid in and out.
+  var SERIES = [
+    ['solar', 'Solar', '#F5A400', true], ['charge', 'Charging', '#00A36C', true], ['discharge', 'Discharge', '#8E5CF7', true],
+    ['import', 'Grid in', '#E5261E', false], ['export', 'Grid out', '#2F6BFF', false]
+  ];
 
   function kw(v) { return (Math.round(v * 10) / 10).toFixed(1); }
   function kwh(v) { return v >= 100 ? Math.round(v) : v.toFixed(1); }
@@ -44,37 +47,28 @@
     return Math.ceil(v / 10) * 10;
   }
 
-  function layers(e, defs, sign) {
-    var acc = new Array(e.n), prev = new Array(e.n), out = [], i;
-    for (i = 0; i < e.n; i++) { acc[i] = 0; }
-    defs.forEach(function (d) {
-      for (i = 0; i < e.n; i++) prev[i] = acc[i];
-      for (i = 0; i < e.n; i++) acc[i] += e.series[d[0]][i] * sign;
-      out.push({ def: d, lo: prev.slice(), hi: acc.slice() });
-    });
-    return { layers: out, top: acc };
-  }
-
   function chart(e) {
-    var up = layers(e, UP, 1), down = layers(e, DOWN, -1), i;
-    var maxUp = Math.max.apply(null, up.top.concat(e.series.home)), maxDown = -Math.min.apply(null, down.top.concat([0]));
-    var yMax = niceMax(maxUp), yMin = maxDown > 0.05 ? niceMax(maxDown) : 0;
+    var i, all = [].concat.apply([], SERIES.map(function (d) { return e.series[d[0]]; }).concat([e.series.home]));
+    var yMax = niceMax(Math.max.apply(null, all));
     var iw = W - PL, ih = H - PB - PT;
     function x(i) { return PL + (e.n > 1 ? i / (e.n - 1) : 0) * iw; }
-    function y(v) { return PT + (yMax - v) / (yMax + yMin) * ih; }
-    function area(l) {
-      var top = '', bot = '';
-      for (i = 0; i < e.n; i++) top += (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(l.hi[i]).toFixed(1);
-      for (i = e.n - 1; i >= 0; i--) bot += 'L' + x(i).toFixed(1) + ',' + y(l.lo[i]).toFixed(1);
-      return '<path d="' + top + bot + 'Z" fill="' + l.def[2] + '"/>';
+    function y(v) { return PT + (yMax - v) / yMax * ih; }
+    function line(arr) {
+      var d = '';
+      for (i = 0; i < e.n; i++) d += (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(arr[i]).toFixed(1);
+      return d;
     }
-    var home = '';
-    for (i = 0; i < e.n; i++) home += (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(e.series.home[i]).toFixed(1);
+    function layer(d) {
+      var top = line(e.series[d[0]]);
+      var fill = d[3] ? '<path d="' + top + 'L' + x(e.n - 1).toFixed(1) + ',' + y(0).toFixed(1) + 'L' + x(0).toFixed(1) + ',' + y(0).toFixed(1) + 'Z" fill="' + d[2] + '" fill-opacity=".35"/>' : '';
+      return fill + '<path d="' + top + '" fill="none" stroke="' + d[2] + '" stroke-width="2.5" stroke-linejoin="round"/>';
+    }
+    var home = line(e.series.home);
 
-    var grid = '', ticks = [yMax, yMax / 2, 0].concat(yMin ? [-yMin / 2, -yMin] : []);
+    var grid = '', ticks = [yMax, yMax / 2, 0];
     ticks.forEach(function (t) {
       grid += '<line x1="' + PL + '" x2="' + W + '" y1="' + y(t).toFixed(1) + '" y2="' + y(t).toFixed(1) + '" class="' + (t === 0 ? 'en-zero' : 'en-grid') + '"/>' +
-        '<text x="' + (PL - 8) + '" y="' + (y(t) + 5).toFixed(1) + '" class="en-tick" text-anchor="end">' + (Math.abs(t) < 1 && t ? Math.abs(t).toFixed(1) : Math.abs(t)) + '</text>';
+        '<text x="' + (PL - 8) + '" y="' + (y(t) + 5).toFixed(1) + '" class="en-tick" text-anchor="end">' + t + '</text>';
     });
     // Hour labels every 3 hours, in the house's time zone.
     var fmt = new Intl.DateTimeFormat('en-AU', { hour: 'numeric', hour12: true, timeZone: e.zone });
@@ -87,7 +81,7 @@
         '<text x="' + tx.toFixed(1) + '" y="' + (H - 6) + '" class="en-tick" text-anchor="middle">' + fmt.format(new Date(t)).replace(' ', '') + '</text>';
     }
     return '<svg class="en-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + xl + grid +
-      up.layers.concat(down.layers).map(area).join('') +
+      SERIES.map(layer).join('') +
       '<path d="' + home + '" class="en-home"/>' +
       '<line class="en-cursor" x1="0" x2="0" y1="' + PT + '" y2="' + (H - PB) + '"/>' +
       '<rect class="en-hit" x="' + PL + '" y="0" width="' + iw + '" height="' + H + '"/></svg>';
@@ -97,7 +91,7 @@
     var t = new Date(e.start + i * e.step);
     var when = new Intl.DateTimeFormat('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: e.zone }).format(t);
     var s = e.series;
-    return '<b>' + when + '</b>' + UP.concat(DOWN).map(function (d) {
+    return '<b>' + when + '</b>' + SERIES.map(function (d) {
       return '<span><i style="background:' + d[2] + '"></i>' + d[1] + ' <b class="num">' + kw(s[d[0]][i]) + '</b> kW</span>';
     }).join('') + '<span><i class="en-home-key"></i>Home <b class="num">' + kw(s.home[i]) + '</b> kW</span>';
   }
@@ -139,12 +133,12 @@
     return tile('#F5A400', 'Solar', kw(b.solarKw || 0), 'generating') +
       tile('#111111', 'Home', kw(b.homeKw || 0), 'using') +
       tile('#8E5CF7', 'Battery', kw(Math.abs(flow)), Math.round(b.soc || 0) + '% · ' + (flow > 0.05 ? 'charging' : flow < -0.05 ? 'discharging' : 'idle')) +
-      tile('#3B6FFF', 'Grid', kw(Math.abs(grid)), grid > 0.05 ? 'importing' : grid < -0.05 ? 'exporting' : 'idle');
+      tile('#2F6BFF', 'Grid', kw(Math.abs(grid)), grid > 0.05 ? 'importing' : grid < -0.05 ? 'exporting' : 'idle');
   }
 
   function totals(e) {
     var t = e.totals;
-    return [['Solar made', t.solar], ['Home used', t.home], ['To grid', t.export], ['From grid', t.import], ['Battery in', t.charge], ['Battery out', t.discharge]].map(function (x) {
+    return [['Solar made', t.solar], ['Home used', t.home], ['To grid', t.export], ['From grid', t.import], ['Charging', t.charge], ['Discharge', t.discharge]].map(function (x) {
       return '<div><span class="label">' + x[0] + '</span><b class="num">' + kwh(x[1]) + '<small> kWh</small></b></div>';
     }).join('');
   }
