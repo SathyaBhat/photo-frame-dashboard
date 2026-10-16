@@ -24,9 +24,14 @@
 .en-cursor { stroke: var(--ink); stroke-width: 2; display: none; }
 .en-hit { fill: transparent; }
 .en-msg { height: 100%; display: grid; place-items: center; color: var(--mute); font-size: 22px; font-weight: 700; }
-.en-readout { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 17px; min-height: 26px; }
+.en-readout { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; font-size: 17px; min-height: 26px; }
 .en-readout > b { font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; margin-right: 4px; }
 .en-readout i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; }
+.en-dim { opacity: .12; }
+.en-key { display: inline-flex; align-items: center; min-height: 40px; padding: 0 10px; border-radius: 10px; font-size: 17px; }
+.en-key:active { background: var(--paper-2); }
+.en-key.is-focus { background: var(--paper-2); }
+.en-key.is-dim { opacity: .4; }
 .en-readout .en-home-key { background: var(--ink); height: 4px; vertical-align: middle; }
 .en-readout .num { font-size: 20px; }
 

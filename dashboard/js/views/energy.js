@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   var D = window.DATA;
-  var V = { el: null, day: null, data: null, error: false, loading: false, at: 0, timer: null, sel: null };
+  var V = { el: null, day: null, data: null, error: false, loading: false, at: 0, timer: null, sel: null, focus: null };
   var W = 1150, H = 300, PL = 46, PB = 26, PT = 8, STALE_MS = 60 * 1000;
   // Every series is drawn from zero on one positive axis (they overlap rather than stack).
   // Charging and discharge never happen together, and neither do grid in and out.
@@ -58,10 +58,11 @@
       for (i = 0; i < e.n; i++) d += (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(arr[i]).toFixed(1);
       return d;
     }
+    function dim(key) { return V.focus && V.focus !== key ? ' class="en-dim"' : ''; }
     function layer(d) {
       var top = line(e.series[d[0]]);
       var fill = d[3] ? '<path d="' + top + 'L' + x(e.n - 1).toFixed(1) + ',' + y(0).toFixed(1) + 'L' + x(0).toFixed(1) + ',' + y(0).toFixed(1) + 'Z" fill="' + d[2] + '" fill-opacity=".35"/>' : '';
-      return fill + '<path d="' + top + '" fill="none" stroke="' + d[2] + '" stroke-width="2.5" stroke-linejoin="round"/>';
+      return '<g' + dim(d[0]) + '>' + fill + '<path d="' + top + '" fill="none" stroke="' + d[2] + '" stroke-width="2.5" stroke-linejoin="round"/></g>';
     }
     var home = line(e.series.home);
 
@@ -82,7 +83,7 @@
     }
     return '<svg class="en-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + xl + grid +
       SERIES.map(layer).join('') +
-      '<path d="' + home + '" class="en-home"/>' +
+      '<path d="' + home + '" class="en-home' + (V.focus && V.focus !== 'home' ? ' en-dim' : '') + '"/>' +
       '<line class="en-cursor" x1="0" x2="0" y1="' + PT + '" y2="' + (H - PB) + '"/>' +
       '<rect class="en-hit" x="' + PL + '" y="0" width="' + iw + '" height="' + H + '"/></svg>';
   }
@@ -91,9 +92,10 @@
     var t = new Date(e.start + i * e.step);
     var when = new Intl.DateTimeFormat('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: e.zone }).format(t);
     var s = e.series;
-    return '<b>' + when + '</b>' + SERIES.map(function (d) {
-      return '<span><i style="background:' + d[2] + '"></i>' + d[1] + ' <b class="num">' + kw(s[d[0]][i]) + '</b> kW</span>';
-    }).join('') + '<span><i class="en-home-key"></i>Home <b class="num">' + kw(s.home[i]) + '</b> kW</span>';
+    function item(key, name, color, val, cls) {
+      return '<button class="en-key' + (V.focus === key ? ' is-focus' : V.focus ? ' is-dim' : '') + '" data-series="' + key + '"><i class="' + (cls || '') + '" style="background:' + color + '"></i>' + name + ' <b class="num">' + kw(val) + '</b> kW</button>';
+    }
+    return '<b>' + when + '</b>' + SERIES.map(function (d) { return item(d[0], d[1], d[2], s[d[0]][i]); }).join('') + item('home', 'Home', '#111111', s.home[i], 'en-home-key');
   }
 
   function setCursor(i) {
@@ -183,6 +185,7 @@
           '<div class="en-card"><div class="en-chart"></div><div class="en-readout"></div></div>' +
           '<div class="en-totals"></div></div>';
         el.addEventListener('click', function (ev) {
+          var b;
           if (ev.target.closest('[data-prev]')) {
             var today = V.data ? V.data.today : dayStr(Date.now());
             go(shiftDay(V.day || today, -1));
@@ -190,6 +193,7 @@
             var nx = shiftDay(V.day, 1), t = V.data ? V.data.today : dayStr(Date.now());
             go(nx >= t ? null : nx);
           } else if (ev.target.closest('[data-now]')) go(null);
+          else if ((b = ev.target.closest('[data-series]'))) { V.focus = V.focus === b.dataset.series ? null : b.dataset.series; paintChart(); }
           else if (V.error && ev.target.closest('.en-chart')) load(true);
         });
       }
