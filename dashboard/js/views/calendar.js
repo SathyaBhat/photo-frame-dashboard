@@ -72,7 +72,7 @@
   function hoursCol() {
     var h = '';
     for (var i = START; i <= END; i++) {
-      h += '<div class="hr" style="top:' + (i - START) * PX + 'px"><span>' + (i === 12 ? 'Noon' : (i % 12 || 12) + (i < 12 ? ' AM' : ' PM')) + '</span></div>';
+      h += '<div class="hr" style="top:' + (i - START) * PX + 'px"><span>' + (i === 12 && !App.settings.get('clock24') ? 'Noon' : App.fmt.hour(new Date(2000, 0, 1, i))) + '</span></div>';
     }
     return h;
   }

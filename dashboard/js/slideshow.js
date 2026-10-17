@@ -114,7 +114,7 @@
     var self = this;
     this.current = slide;
     var wrap = document.createElement('div');
-    wrap.innerHTML = BUILD[slide.layout](slide.photos, this.o);
+    wrap.innerHTML = BUILD[slide.layout](slide.photos, Object.assign({}, this.o, { captions: this.o.captions && App.settings.get('captions') }));
     var node = wrap.firstChild;
     node.style.opacity = '0';
     // Fallback look if images can't load (offline)
@@ -152,7 +152,7 @@
   S.restart = function () {
     var self = this;
     clearInterval(this.timer);
-    this.timer = setInterval(function () { self.next(); }, this.o.interval);
+    this.timer = setInterval(function () { self.next(); }, App.settings.get('slideSecs') * 1000 || this.o.interval);
   };
   S.start = function () { if (!this.current) this.next(); else this.restart(); };
   S.stop = function () { clearInterval(this.timer); this.timer = null; };

@@ -1,0 +1,20 @@
+/* Settings */
+.settings { height: 100%; display: flex; flex-direction: column; }
+.st-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; flex: none; }
+.st-head h1 { font-size: 64px; line-height: .95; }
+.st-reset { min-height: var(--tap); padding: 0 22px; border-radius: 999px; background: var(--paper-2); font-size: 17px; font-weight: 800; font-stretch: 75%; letter-spacing: .05em; text-transform: uppercase; }
+.st-reset:active { background: var(--ink); color: var(--paper); }
+
+.st-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; }
+.st-card { background: var(--card); border-radius: var(--r); padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.st-row { display: flex; flex-direction: column; gap: 8px; }
+.st-name { display: flex; align-items: baseline; gap: 10px; }
+.st-name b { font-size: 20px; font-weight: 700; }
+.st-name small { font-size: var(--fs-min); color: var(--mute); }
+.st-row .seg { align-self: flex-start; max-width: 100%; }
+.st-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.st-btns button {
+  min-height: var(--tap); padding: 0 18px; border-radius: 14px; background: var(--paper-2);
+  font-size: 17px; font-weight: 700;
+}
+.st-btns button:active { background: var(--ink); color: var(--paper); }

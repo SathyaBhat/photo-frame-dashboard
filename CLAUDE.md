@@ -50,7 +50,7 @@ Plain JavaScript and CSS bundled by Vite. There is no framework and no build-tim
 - `js/main.js` imports the modules in order. Each one attaches to the shared `window.App`, so
   keep that order when adding imports.
 - `js/data.js` builds `window.DATA`: synchronous **mock** data (people, events, chores, groceries,
-  rooms/devices, weather by hour, photos, agents). Dates are relative to today. `App.state` is
+  rooms/devices, weather by hour, photos). Dates are relative to today. `App.state` is
   this object, and every view reads from it.
 - `js/app.js` is the shell: hash router (`#home`, `#calendar`, …), `App.register(name, view)`,
   `App.rerender()`, the demo clock (`App.now()` and `App.setTime()`), and helpers such as

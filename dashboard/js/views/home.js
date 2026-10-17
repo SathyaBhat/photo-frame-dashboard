@@ -27,7 +27,7 @@
       ? '<div class="h-wx-hours h-wx-hours--days">' + days.map(function (d) {
         var y = +d.day.slice(0, 4), m = +d.day.slice(5, 7) - 1, dd = +d.day.slice(8, 10);
         return '<div class="h-hr' + (d.p >= App.WET_CHANCE ? ' is-wet' : '') + '"><span class="h-hr-l">' + DOW[new Date(y, m, dd).getDay()] + '</span>' +
-          '<span class="h-hr-i">' + App.icon(d.c, 22) + '</span><b>' + (d.hi === null ? '–' : d.hi + '°') + '<small>' + (d.lo === null ? '' : d.lo + '°') + '</small></b></div>';
+          '<span class="h-hr-i">' + App.icon(d.c, 22) + '</span><b>' + (d.hi === null ? '–' : App.temp(d.hi) + '°') + '<small>' + (d.lo === null ? '' : App.temp(d.lo) + '°') + '</small></b></div>';
       }).join('') + '</div>'
       : '<div class="h-wx-hours">' + hours.map(function (h) {
         var lift = tmax === tmin ? 0 : Math.round((h.t - tmin) / (tmax - tmin) * 8);
@@ -36,8 +36,8 @@
       }).join('') + '</div>';
     return '<div class="h-wx-top">' +
       '<span class="h-wx-icon">' + App.icon(w.cond, 60) + '</span>' +
-      '<span class="h-wx-temp num">' + w.temp + '°</span>' +
-      '<span class="h-wx-meta"><b>' + w.label + '</b><span>H ' + w.hi + '°  L ' + w.lo + '°</span></span>' +
+      '<span class="h-wx-temp num">' + App.temp(w.temp) + '°</span>' +
+      '<span class="h-wx-meta"><b>' + w.label + '</b><span>H ' + App.temp(w.hi) + '°  L ' + App.temp(w.lo) + '°</span></span>' +
       '</div>' +
       '<div class="h-wx-say"><b>' + w.summary + '.</b> ' + w.advice + '.</div>' + strip;
   }

@@ -24,23 +24,28 @@
   App.dayStart = function (d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
   App.addDays = function (d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; };
   App.sameDay = function (a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); };
-  App.isNight = function () { var h = App.now().getHours(); return h >= 22 || h < 6; };
+  App.isNight = function () {
+    var h = App.now().getHours(), from = App.settings.get('nightFrom'), to = App.settings.get('nightTo');
+    return from > to ? (h >= from || h < to) : (h >= from && h < to);
+  };
 
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
   App.fmt = {
     time: function (d, ampm) {
-      var h = d.getHours(), m = d.getMinutes();
-      var s = (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m;
+      var h = d.getHours(), m = d.getMinutes(), mm = (m < 10 ? '0' : '') + m;
+      if (App.settings.get('clock24')) return (h < 10 ? '0' : '') + h + ':' + mm;
+      var s = (h % 12 || 12) + ':' + mm;
       return ampm === false ? s : s + ' ' + (h >= 12 ? 'PM' : 'AM');
     },
-    // "4 PM", "3:45 PM"
+    // "4 PM", "3:45 PM" (24-hour: "16:00", "15:45")
     hour: function (d) {
       var h = d.getHours(), m = d.getMinutes();
+      if (App.settings.get('clock24')) return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
       return (h % 12 || 12) + (m ? ':' + (m < 10 ? '0' : '') + m : '') + ' ' + (h >= 12 ? 'PM' : 'AM');
     },
-    ampm: function (d) { return d.getHours() >= 12 ? 'PM' : 'AM'; },
+    ampm: function (d) { return App.settings.get('clock24') ? '' : d.getHours() >= 12 ? 'PM' : 'AM'; },
     range: function (a, b) {
       var same = App.fmt.ampm(a) === App.fmt.ampm(b);
       return (same ? App.fmt.time(a, false) : App.fmt.time(a)) + ' – ' + App.fmt.time(b);
@@ -297,7 +302,7 @@
   };
 
   // ------------------------------------------------------------ idle
-  App.idle = { home: 60, ambient: 120 };
+  App.idle = { home: 60, ambient: 120 }; // overwritten from Settings at startup
   var idleSec = 0;
   function onIdleTick() {
     idleSec++;
@@ -322,6 +327,7 @@
 
   // ------------------------------------------------------------ clock tick
   var lastMin = -1;
+  App.refreshClock = function () { lastMin = -1; };
   function tick() {
     var n = App.now();
     App.emit('second', n);
