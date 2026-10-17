@@ -22,6 +22,37 @@
     });
   }
 
+  // The shared Google Calendar, via the frame server. Events belong to the whole family, so they list every
+  // person: the views then show them as "Family". Until the first success the mock events stay.
+  var CAL_MS = 5 * 60 * 1000;
+  var calJSON = '';
+
+  function localDay(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); } // all-day values are dates, not instants
+
+  function toEvent(e) {
+    return {
+      id: e.id, title: e.title, allDay: e.allDay, live: true, loc: e.location || undefined,
+      start: e.allDay ? localDay(e.start) : new Date(e.start),
+      end: e.allDay ? localDay(e.end) : new Date(e.end),
+      people: D.people.map(function (p) { return p.id; })
+    };
+  }
+
+  function loadCalendar() {
+    return getJSON('calendar').then(function (res) {
+      var json = JSON.stringify(res.events);
+      if (json === calJSON) return;
+      calJSON = json;
+      // Keep anything added by hand in the Calendar view; the rest (mock or earlier real events) is replaced.
+      D.events = D.events.filter(function (e) { return e.local; }).concat(res.events.map(toEvent));
+      App.emit('data');
+      App.rerender();
+    }).catch(function (e) {
+      if (e.message === 'HTTP 503') return; // server has no calendar configured: stay on mock
+      console.warn('HomeHQ live calendar failed, keeping current data:', e.message);
+    });
+  }
+
   // Home Assistant, via the frame server. Until the first success the mock home stays; after that the real
   // rooms/devices/scenes/media replace it and the mock-only sections (climate, cameras, locks, garage) go away.
   var HOME_MS = 10 * 1000;
@@ -87,7 +118,9 @@
   App.on('ready', function () {
     loadWeather();
     loadHome();
+    loadCalendar();
     setInterval(loadHome, HOME_MS);
+    setInterval(loadCalendar, CAL_MS);
     setInterval(loadWeather, WEATHER_MS);
     setInterval(checkVersion, 60 * 1000);
   });
