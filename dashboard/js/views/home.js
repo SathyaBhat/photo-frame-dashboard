@@ -73,22 +73,40 @@
       '<div class="h-hero-count num">' + Math.round(b.soc) + '<small>%</small></div></button>';
   }
 
-  function lanes() {
-    var now = App.now();
-    return D.people.map(function (p) {
-      var list = App.timedOn(now, p.id).filter(function (e) { return e.end > now; });
-      var shown = list.slice(0, 3), more = list.length - shown.length;
-      return '<div class="h-lane" style="' + App.pstyle(p) + '">' +
-        '<div class="h-lane-head">' + App.avatar(p, 30) + '<b>' + p.name + '</b></div>' +
-        (list.length ? shown.map(function (e) {
-          var cur = e.start <= now;
-          return '<button class="h-ev' + (cur ? ' is-now' : '') + '" data-ev="' + e.id + '">' +
-            '<span class="h-ev-t">' + (cur ? 'Now' : App.fmt.time(e.start, false)) + '</span>' +
-            '<span class="h-ev-n">' + App.esc(e.title) + '</span></button>';
-        }).join('') : '<div class="h-free serif"><i>Free</i> the rest of the day</div>') +
-        (more > 0 ? '<button class="h-more" data-go="calendar">+' + more + ' more</button>' : '') +
-        '</div>';
-    }).join('');
+  var AGENDA_MAX = 4; // the panel is 304 px tall: a label, four 52 px rows and the "more" button
+
+  // What is still to come on `day`: all-day events first, then timed events that have not ended.
+  function remaining(day, now) {
+    return App.allDayOn(day).concat(App.timedOn(day).filter(function (e) { return e.end > now; }));
+  }
+
+  // The family's upcoming events. Starts today; carries on to the next days while the days so far
+  // have only all-day events left, and stops at the first day with timed events still to come.
+  function agenda() {
+    var now = App.now(), today = App.dayStart(now), groups = [], total = 0, i;
+    for (i = 0; i < 7 && total < AGENDA_MAX; i++) {
+      var day = App.addDays(today, i), list = remaining(day, now);
+      if (!list.length) continue;
+      groups.push({ day: day, list: list });
+      total += list.length;
+      if (list.some(function (e) { return !e.allDay; })) break;
+    }
+    if (!groups.length) return '<div class="h-free serif">Nothing <i>coming up</i></div>';
+    var room = AGENDA_MAX, html = '';
+    groups.forEach(function (g) {
+      var shown = g.list.slice(0, Math.max(room, 0));
+      room -= shown.length;
+      if (!shown.length) return;
+      html += '<div class="label">' + App.fmt.rel(g.day) + '</div>' + shown.map(function (e) {
+        var cur = !e.allDay && e.start <= now;
+        return '<button class="h-ag' + (cur ? ' is-now' : '') + '" style="' + App.pstyle(App.evColor(e)) + '" data-ev="' + App.esc(e.id) + '">' +
+          '<span class="h-ag-t">' + (e.allDay ? 'All day' : cur ? 'Now' : App.fmt.time(e.start)) + '</span>' +
+          '<span class="h-ag-n">' + App.esc(e.title) + '</span>' +
+          (e.loc ? '<span class="h-ag-l">' + App.esc(e.loc) + '</span>' : '') + '</button>';
+      }).join('');
+    });
+    var more = groups.reduce(function (n, g) { return n + g.list.length; }, 0) - AGENDA_MAX;
+    return html + (more > 0 ? '<button class="h-more" data-go="calendar">+' + more + ' more</button>' : '');
   }
 
   function ring(done, total, size) {
@@ -145,7 +163,7 @@
     el.querySelector('.h-weather').innerHTML = weather();
     el.querySelector('.h-presence').innerHTML = presence();
     el.querySelector('.h-hero-slot').innerHTML = hero();
-    el.querySelector('.h-lanes').innerHTML = lanes();
+    el.querySelector('.h-agenda').innerHTML = agenda();
     el.querySelector('.h-chores').innerHTML = chores();
     el.querySelector('.h-shop').innerHTML = shopping();
     el.querySelector('.h-status').innerHTML = status();
@@ -164,7 +182,7 @@
           '<div class="h-clock" data-go="calendar"></div>' +
           '<div class="h-weather"></div>' +
           '<div class="h-presence"></div>' +
-          '<div class="h-main"><div class="h-hero-slot"></div><div class="h-lanes" ></div></div>' +
+          '<div class="h-main"><div class="h-hero-slot"></div><div class="h-agenda"></div></div>' +
           '<div class="h-side">' +
           '  <button class="h-photo" data-go="photos"><div class="h-photo-stage"></div><div class="h-photo-cap"></div></button>' +
           '  <button class="h-chores card" data-go="tasks"></button>' +
@@ -188,7 +206,7 @@
   App.on('minute', function (n) {
     if (!V.el || !V.el.firstChild) return;
     V.el.querySelector('.h-clock').innerHTML = clock();
-    if (n.getMinutes() === 0) { V.el.querySelector('.h-weather').innerHTML = weather(); V.el.querySelector('.h-lanes').innerHTML = lanes(); }
+    if (n.getMinutes() === 0) { V.el.querySelector('.h-weather').innerHTML = weather(); V.el.querySelector('.h-agenda').innerHTML = agenda(); }
   });
   App.on('data', function () { if (App.current === 'home') paint(); });
 })();
