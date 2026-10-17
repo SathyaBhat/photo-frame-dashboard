@@ -39,6 +39,8 @@ services:
       - HA_BATTERY_PREFIX=${HA_BATTERY_PREFIX:-}
       - HA_BATTERY_KWH=${HA_BATTERY_KWH:-}
       - HA_BATTERY_RESERVE=${HA_BATTERY_RESERVE:-}
+      # Shared Google Calendar's secret iCal address (optional). Without it the frame keeps its mock events.
+      - GCAL_ICS_URL=${GCAL_ICS_URL:-}
     networks:
       - dokploy-network
     labels:

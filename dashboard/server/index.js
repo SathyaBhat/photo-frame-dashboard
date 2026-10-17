@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { buildWeather } from './weather-map.js';
 import { buildEnergy, parseHistory, dayStart, localDay, nextDay } from './energy-map.js';
 import { buildHome, buildBattery, buildCommand, BadRequest } from './ha-map.js';
+import { createCalendar } from './calendar-service.js';
 
 var BOM = 'https://api.weather.bom.gov.au/v1';
 var TTL = 15 * 60 * 1000;
@@ -18,6 +19,9 @@ var HA_BATTERY_PREFIX = process.env.HA_BATTERY_PREFIX || '';
 var HA_BATTERY_KWH = +process.env.HA_BATTERY_KWH || 10;
 var HA_BATTERY_RESERVE = process.env.HA_BATTERY_RESERVE === undefined ? 10 : +process.env.HA_BATTERY_RESERVE;
 var HOME_TTL = 5000;
+// The shared Google Calendar's secret iCal address. Optional: without it /api/calendar answers 503 and the frame keeps its mock events.
+// The address is a credential: never log it or put it in an error.
+var GCAL_ICS_URL = process.env.GCAL_ICS_URL || '';
 if (!GEOHASH) { console.error('Set BOM_LOCATION to a BOM geohash (find one: https://api.weather.bom.gov.au/v1/locations?search=<suburb>)'); process.exit(1); }
 
 async function bom(path, optional) {
@@ -30,6 +34,13 @@ async function bom(path, optional) {
     throw e;
   }
 }
+
+async function fetchIcs(url) {
+  var res = await fetch(url, { headers: { 'user-agent': 'photo-frame-dashboard (home use)' }, signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error('calendar feed -> HTTP ' + res.status);
+  return res.text();
+}
+var calendar = GCAL_ICS_URL ? createCalendar({ url: GCAL_ICS_URL, fetchText: fetchIcs }) : null;
 
 var location; // timezone rarely changes; fetch once
 async function fetchWeather() {
@@ -188,6 +199,15 @@ createServer(async function (req, res) {
   if (path === '/api/home' || /^\/api\/(device|scene|media)\//.test(path)) return homeRoute(req, res, path);
   if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
   if (path === '/api/health') return send(res, 200, { ok: true });
+  if (path === '/api/calendar') {
+    if (!calendar) return send(res, 503, { error: 'calendar not configured' });
+    try {
+      var c = await calendar();
+      return send(res, 200, { events: c.data, stale: c.stale, updated: new Date(c.at).toISOString() });
+    } catch (e) {
+      return send(res, 502, { error: 'calendar unavailable' });
+    }
+  }
   if (path === '/api/weather') {
     try {
       var w = await weather();
@@ -197,4 +217,4 @@ createServer(async function (req, res) {
     }
   }
   send(res, 404, { error: 'not found' });
-}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off')); });
+}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off') + ', calendar ' + (GCAL_ICS_URL ? 'on' : 'off')); });
