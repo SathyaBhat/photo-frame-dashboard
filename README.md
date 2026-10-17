@@ -1,72 +1,87 @@
-# Taking over Android photo frames
+# Family dashboard on an Akimart photo frame
 
-Turn a cheap Android photo frame into a family dashboard: unlock it, root it, replace the vendor app, and run your own web page full screen.
+A fork of [wesbos/photo-frame-dashboard](https://github.com/wesbos/photo-frame-dashboard), which
+shows how to take over a cheap Android photo frame and run a family dashboard full screen. This
+fork runs that dashboard on one **Akimart ZN-DP1002** (SSA RK3326 board, Android 8.1) with real
+weather, Home Assistant and solar data from a small server on the home network.
 
-**TLDR:** buy a $50 frame, point an agent at this repo and let 'er rip!
+Upstream's video, device research and per-frame notes are still here. See
+[Upstream research](#upstream-research).
 
-[![The family dashboard running on the BIUFRAME 10.1" photo frame](docs/images/dashboard-on-frame.jpg)](https://youtu.be/ZLycoUMltNI)
+## What is in this fork
 
-▶️ **Watch the video: [https://youtu.be/ZLycoUMltNI](https://youtu.be/ZLycoUMltNI)**
+| Path | What it is |
+| --- | --- |
+| [`dashboard/`](dashboard) | The dashboard: plain JavaScript and CSS bundled by Vite, sized for 1280×800 touch. |
+| [`dashboard/server/`](dashboard/server) | A small Node API that fetches weather, Home Assistant and energy data, so credentials stay off the frame. |
+| [`dashboard/kiosk/`](dashboard/kiosk) | Upstream's full-screen WebView app that shows the dashboard. This fork builds a local copy with its own URL. |
+| [`docs/akimart-zn-dp1002.md`](docs/akimart-zn-dp1002.md) | The record of how this frame was set up. |
+| [`CLAUDE.md`](CLAUDE.md) | Working notes for agents on this fork: how to reach the frame, build and deploy. |
 
-## Working frames
+### The dashboard
 
-<a href="https://amzn.to/4zneGNM"><img src="docs/images/devices/B0GHR65YYX.jpg" width="110" alt="10.1&quot; frame from the video (now often ships the PF1007L)" title="10.1&quot; frame from the video (now often ships the PF1007L)"></a>
-<a href="https://amzn.to/4B38DQ0"><img src="docs/images/devices/B0FSZ86HTM.jpg" width="110" alt="Runxion 10.1&quot; Frameo" title="Runxion 10.1&quot; Frameo"></a>
-<a href="https://amzn.to/4zwU6e0"><img src="docs/images/devices/B0GCCFPHZ4.jpg" width="110" alt="15.6&quot; Frameo" title="15.6&quot; Frameo"></a>
-<a href="https://www.amazon.com/dp/B0CQN2PKQR?tag=webo080-20"><img src="docs/images/devices/B0CQN2PKQR.jpg" width="110" alt="Pastigio FRAME156 15.6&quot; Frameo" title="Pastigio FRAME156 15.6&quot; Frameo"></a>
-<a href="https://www.amazon.com/dp/B0D8J5PNFH?tag=webo080-20"><img src="docs/images/devices/B0D8J5PNFH.jpg" width="110" alt="Dragon Touch Modern10 Charm" title="Dragon Touch Modern10 Charm"></a>
-<a href="https://www.amazon.com/dp/B0C9V811L6?tag=webo080-20"><img src="docs/images/devices/B0C9V811L6.jpg" width="110" alt="Skylight Calendar 15&quot;" title="Skylight Calendar 15&quot;"></a>
-<a href="https://www.amazon.es/dp/B0GGB7LWX8"><img src="docs/images/devices/B0GGB7LWX8.jpg" width="110" alt="Humblestead 10.1&quot; (Amazon Spain, PF1007L)" title="Humblestead 10.1&quot; (Amazon Spain, PF1007L)"></a>
-<a href="https://www.amazon.ca/dp/B0H4W1YPHH"><img src="docs/images/devices/B0H4W1YPHH.jpg" width="110" alt="Anna Bella 10.1&quot; (Amazon Canada, PF1007L)" title="Anna Bella 10.1&quot; (Amazon Canada, PF1007L)"></a>
+Pages, picked from the rail on the left:
 
-Frames confirmed to work (Amazon affiliate links). See the **[device index](docs/devices.md)** for every
-frame, which board it has, and where to start.
+- **Today:** clock, weather, what is next, chores and a photo tile.
+- **Calendar**, **Chores** and **Shopping**: still mock data.
+- **Photos:** a slideshow with captions.
+- **Home:** rooms, devices, scenes and media from Home Assistant.
+- **Energy:** live solar, battery, grid and home power, a 24-hour flow chart and day-by-day history.
+- **Settings:** idle timeouts, night hours, photo slide time and captions, 12/24-hour clock,
+  °C/°F and the diagnostics overlay, saved on the frame. It also holds the demo clock, calendar
+  data, mode and alert tests, which last until the page reloads.
 
-## Community builds
+After a quiet spell the frame goes back to Today, then to a full-screen photo frame (a dim red
+clock at night). Hold two fingers still for 1.5 s for the kiosk menu (launcher, Android settings,
+reload).
 
-30 people have shared their hacked frames in [Community builds](docs/community-builds.md): LCARS
-interfaces, retro weather channels, chess puzzles, Linux on a frame, family dashboards and more.
+Run it on a desktop:
 
-<a href="docs/community-builds.md"><img src="docs/images/community/JesseWaites-11.jpg" height="90" alt="Star Trek LCARS interface" title="Star Trek LCARS interface"></a>
-<a href="docs/community-builds.md"><img src="docs/images/community/derekparks-dev-14.jpg" height="90" alt="Retro weather-channel display" title="Retro weather-channel display"></a>
-<a href="docs/community-builds.md"><img src="docs/images/community/tushargugnani-10.jpg" height="90" alt="Chess puzzles and analytics" title="Chess puzzles and analytics"></a>
-<a href="docs/community-builds.md"><img src="docs/images/community/redp314-23.jpg" height="90" alt="Omarchy Linux on an A33 frame" title="Omarchy Linux on an A33 frame"></a>
-<a href="docs/community-builds.md"><img src="docs/images/community/rida-18.jpg" height="90" alt="Family dashboard" title="Family dashboard"></a>
-<a href="docs/community-builds.md"><img src="docs/images/community/onurceri-36.jpg" height="90" alt="FamilyOS" title="FamilyOS"></a>
+```sh
+cd dashboard
+npm ci
+npx vite --host        # live reload, best at 1280x800
+npx vite build         # local check
+```
 
-Notes and scripts from getting full control of locked-down Android photo frames: getting ADB,
-backing up the firmware, getting root, removing the vendor app, and running our own launcher,
-browser and kiosk app. These are records of the units their owners tested, not universal flashing
-guides.
+The WebView on the frame is Chromium 106, so `vite.config.js` targets `chrome106` for JavaScript
+and `chrome61` for CSS. Do not raise either.
 
-## Which frame do you have?
+### Server and real data
 
-Frames sold under the same name, even the same Amazon listing, can have different boards. Check
-Settings → About before you follow any guide:
+Weather comes from the Bureau of Meteorology's unofficial API, and the Home and Energy pages from
+Home Assistant. Each source falls back to mock data if the server is unreachable. Settings are
+environment variables on the `api` service in
+[`dashboard/docker-compose.yml`](dashboard/docker-compose.yml):
 
-- **PF1007L / AiMOR** (firmware string contains `A33` and `PF1007L`): Allwinner A33. Many viewers of
-  the video got this one. Use a **USB-A to USB-C** data cable; USB-C to USB-C gives no power or data.
-  Start with [pf1007l-start-here.md](docs/pf1007l-start-here.md). It tests
-  ADB over USB, then the network, and only then a boot patch. Its vendor app accepts root shell
-  commands from the vendor's server, so read that page before the frame goes online.
-- **BIUFRAME / Synergy 10X1** (Rockchip RK3126, ADB prompt on screen): the frame in the video. Follow
-  [biuframe-setup-guide.md](docs/biuframe-setup-guide.md). `scripts/biuframe-setup.sh check`
-  changes nothing and confirms the hardware matches; `backup` and `apply` do the rest.
-- **Skylight Calendar 150-CAL** (Rockchip RK3566): start with [next-session.md](docs/next-session.md),
-  then [app-analysis.md](docs/app-analysis.md) for the hidden menu. The manufacturer code is
-  intentionally not published; the doc shows where the app checks it.
-- **Frameo, Dragon Touch, Joyhong, Uhale, VESWWE, Pastigio and others:** see the
-  [device index](docs/devices.md).
-- **Something else:** work through the [phase map](#phase-map), create `docs/<device>.md`, and
-  [send in what you find](#check-for-updates-and-send-back-what-you-find).
+| Variable | Needed | Meaning |
+| --- | --- | --- |
+| `BOM_LOCATION` | yes | BOM geohash for the weather location. |
+| `HA_URL`, `HA_TOKEN` | no | Home Assistant address and access token. Without them the Home page stays mock. |
+| `HA_HIDE` | no | Comma-separated entities to hide. |
+| `HA_BATTERY_PREFIX` | no | Shared entity prefix of the inverter's sensors, for the Energy page. |
+| `HA_BATTERY_KWH`, `HA_BATTERY_RESERVE` | no | Battery size (default 10) and reserve percentage (default 10). |
 
-## The dashboard
+### Deploy
 
-[`dashboard/`](dashboard) is the family dashboard we run on the BIUFRAME (it uses mock data): a Vite
-web app deployed to Cloudflare Workers. `dashboard/kiosk/` is a small full-screen WebView Android app,
-built without Gradle, that shows it. Hold two fingers still for 1.5 s to open a menu for the
-launcher, Android settings, and reloading. On frames without system navigation, optional floating
-**Back** and **Dashboard** buttons help; see the [kiosk guide](dashboard/kiosk/README.md).
+`dashboard/docker-compose.yml` builds the dashboard (`vite build --base /frame/`, served by nginx)
+and the API. It is written for Dokploy with Traefik, under the `/frame/` path. The router
+hostnames come from `FRAME_LAN_HOST` and `FRAME_TAILNET_HOST` in the app's environment, so none are
+committed. Pushing this fork's `main` deploys it. The frame only talks to the server on the local
+network.
+
+### The frame
+
+[`docs/akimart-zn-dp1002.md`](docs/akimart-zn-dp1002.md) records how this unit was identified and set
+up: vendor apps disabled, the kiosk as the HOME app so the frame boots into the dashboard, and a
+floating Home button. Check `ro.build.fingerprint` first: another Akimart ZN-DP1002 has a different
+board (RK3126, Android 6) and needs a different guide.
+
+## Upstream research
+
+The sections below are upstream's, kept because the rules apply to any frame work here. Frames
+other than this one are not tested in this fork. See the upstream [device index](docs/devices.md)
+and [community builds](docs/community-builds.md) for other hardware.
 
 ## For agents: start here
 
