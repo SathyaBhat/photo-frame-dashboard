@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { buildWeather } from './weather-map.js';
 import { buildEnergy, parseHistory, dayStart, localDay, nextDay } from './energy-map.js';
 import { buildHome, buildBattery, buildCommand, BadRequest } from './ha-map.js';
-import { createCalendar } from './calendar-service.js';
+import { createCalendar, fetchFeed } from './calendar-service.js';
 
 var BOM = 'https://api.weather.bom.gov.au/v1';
 var TTL = 15 * 60 * 1000;
@@ -35,12 +35,7 @@ async function bom(path, optional) {
   }
 }
 
-async function fetchIcs(url) {
-  var res = await fetch(url, { headers: { 'user-agent': 'photo-frame-dashboard (home use)' }, signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error('calendar feed -> HTTP ' + res.status);
-  return res.text();
-}
-var calendar = GCAL_ICS_URL ? createCalendar({ url: GCAL_ICS_URL, fetchText: fetchIcs }) : null;
+var calendar = GCAL_ICS_URL ? createCalendar({ url: GCAL_ICS_URL, fetchText: fetchFeed }) : null;
 
 var location; // timezone rarely changes; fetch once
 async function fetchWeather() {

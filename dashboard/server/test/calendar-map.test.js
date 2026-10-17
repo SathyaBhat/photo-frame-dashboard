@@ -50,3 +50,9 @@ test('refuses anything that is not an iCal feed', function () {
   assert.throws(function () { buildCalendar({ ics: '<html>Not found</html>', now: NOW }); }, /not an iCal feed/);
   assert.throws(function () { buildCalendar({ ics: '', now: NOW }); }, /not an iCal feed/);
 });
+
+test('drops a single cancelled instance of a recurring event', function () {
+  var cancelled = readFileSync(new URL('./fixtures/cancelled-instance.ics', import.meta.url), 'utf8');
+  var starts = buildCalendar({ ics: cancelled, now: new Date('2026-10-16T00:00:00Z') }).map(function (e) { return e.start; });
+  assert.deepEqual(starts, ['2026-10-17T06:00:00.000Z', '2026-10-19T06:00:00.000Z', '2026-10-20T06:00:00.000Z']);
+});

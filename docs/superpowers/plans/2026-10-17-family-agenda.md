@@ -501,7 +501,7 @@ git commit -m "Server: /api/calendar from the shared iCal feed
 Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 git push origin main
 ```
-Then follow the memory rule: check the Dokploy deploy (webhook sometimes does not fire; use the `compose.deploy` call in `CLAUDE.local.md`), and when it is up run `curl -s http://wraeclast/frame/api/calendar | head -c 600`. Expected: JSON with `events` (real titles) and `stale: false`. Report the titles' count only; do not paste the owner's calendar into commits or docs.
+Then follow the memory rule: check the Dokploy deploy (webhook sometimes does not fire; use the `compose.deploy` call in `CLAUDE.local.md`), and when it is up run `curl -s <dashboard URL from CLAUDE.local.md>/api/calendar | head -c 600`. Expected: JSON with `events` (real titles) and `stale: false`. Report the titles' count only; do not paste the owner's calendar into commits or docs.
 
 ---
 
@@ -681,7 +681,7 @@ git push origin main
 
 - [ ] **Step 4: Check the deployed app**
 
-Check the deploy as in Task 2 (the `version.json` build id changes), then `curl -s http://wraeclast/frame/api/calendar | head -c 300`. Stop here and tell the owner: it is live on the server, and the frame picks it up by itself (the dashboard reloads when it sees the new build and the screen is idle). Do not reboot, install or change anything on the frame without asking. Offer a screenshot via the `CLAUDE.md` command if the owner wants one.
+Check the deploy as in Task 2 (the `version.json` build id changes), then `curl -s <dashboard URL from CLAUDE.local.md>/api/calendar | head -c 300`. Stop here and tell the owner: it is live on the server, and the frame picks it up by itself (the dashboard reloads when it sees the new build and the screen is idle). Do not reboot, install or change anything on the frame without asking. Offer a screenshot via the `CLAUDE.md` command if the owner wants one.
 
 ---
 

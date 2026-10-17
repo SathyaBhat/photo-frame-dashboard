@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createCalendar } from '../calendar-service.js';
+import { createCalendar, fetchFeed } from '../calendar-service.js';
 
 var ics = readFileSync(new URL('./fixtures/calendar.ics', import.meta.url), 'utf8');
 // A clock inside the fixture's week, so the events are in the window.
@@ -56,4 +56,9 @@ test('the url is passed to fetchText and never appears in a thrown error', async
   var get = createCalendar({ url: 'https://secret.example/abc', clock: clock(T0), fetchText: async function (u) { seen = u; return 'nope'; } });
   await assert.rejects(get(), function (e) { return !/secret\.example/.test(e.message); });
   assert.equal(seen, 'https://secret.example/abc');
+});
+
+test('an unusable address fails without echoing it', async function () {
+  var bad = ' "https://secret.example/abc"';
+  await assert.rejects(fetchFeed(bad), function (e) { return !/secret\.example|abc/.test(e.message); });
 });

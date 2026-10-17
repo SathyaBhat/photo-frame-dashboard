@@ -83,10 +83,11 @@
   // The family's upcoming events. Starts today; carries on to the next days while the days so far
   // have only all-day events left, and stops at the first day with timed events still to come.
   function agenda() {
-    var now = App.now(), today = App.dayStart(now), groups = [], total = 0, i;
+    var now = App.now(), today = App.dayStart(now), groups = [], seen = {}, total = 0, i;
     for (i = 0; i < 7 && total < AGENDA_MAX; i++) {
-      var day = App.addDays(today, i), list = remaining(day, now);
+      var day = App.addDays(today, i), list = remaining(day, now).filter(function (e) { return !seen[e.id]; }); // a multi-day event is listed once
       if (!list.length) continue;
+      list.forEach(function (e) { seen[e.id] = true; });
       groups.push({ day: day, list: list });
       total += list.length;
       if (list.some(function (e) { return !e.allDay; })) break;

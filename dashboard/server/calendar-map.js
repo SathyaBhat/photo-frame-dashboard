@@ -25,7 +25,8 @@ export function buildCalendar({ ics, now, days }) {
     if (ev.type !== 'VEVENT' || ev.status === 'CANCELLED') return;
     var list = ev.rrule ? ical.expandRecurringEvent(ev, { from: from, to: to, expandOngoing: true }) : [ev];
     list.forEach(function (i) {
-      if (!i.start || i.status === 'CANCELLED') return;
+      // An expanded instance has no status of its own: a cancelled override carries it on `event`.
+      if (!i.start || i.status === 'CANCELLED' || (i.event && i.event.status === 'CANCELLED')) return;
       var allDay = !!(i.isFullDay || i.start.dateOnly);
       var end = i.end || new Date(+i.start + (allDay ? DAY_MS : 3600e3));
       if (+i.start >= +to || +end <= +now - (allDay ? SLACK_MS : 0)) return;

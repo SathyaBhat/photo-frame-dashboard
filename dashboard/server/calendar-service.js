@@ -1,6 +1,19 @@
 // Caches the parsed calendar so the frame's polling never turns into one Google fetch per request.
 import { buildCalendar } from './calendar-map.js';
 
+// Fetch the feed text. The address is a credential and fetch's own errors quote it (a malformed value
+// throws 'Failed to parse URL from "<url>"'), so failures are rethrown without it.
+export async function fetchFeed(url) {
+  var res;
+  try {
+    res = await fetch(url, { headers: { 'user-agent': 'photo-frame-dashboard (home use)' }, signal: AbortSignal.timeout(15000) });
+  } catch (e) {
+    throw new Error('calendar feed unreachable');
+  }
+  if (!res.ok) throw new Error('calendar feed -> HTTP ' + res.status);
+  return res.text();
+}
+
 export function createCalendar({ url, fetchText, ttlMs, clock }) {
   var ttl = ttlMs === undefined ? 5 * 60 * 1000 : ttlMs;
   var nowMs = clock || Date.now;
