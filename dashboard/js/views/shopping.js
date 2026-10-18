@@ -9,7 +9,7 @@
   var tmpId = 0;
   // The catalog guesses use the mock's category names; the board has its own.
   var LIVE_CAT = {
-    'Dairy & Eggs': 'Dairy & Refrigerated', 'Meat & Fish': 'Meat & Seafood', 'Bakery': 'Bakery', 'Produce': 'Produce',
+    'Dairy & Eggs': 'Dairy & Refrigerated', 'Meat & Fish': 'Meat & Seafood', 'Bakery': 'Bakery', 'Produce': 'Fruits & Veggies',
     'Pantry': 'Pantry', 'Frozen': 'Pantry', 'Snacks': 'Snacks', 'Household': 'Household'
   };
 

@@ -23,7 +23,7 @@ this work, written after the frame side works.
 - **Lists collapse.** To Buy, Running Low and Need to Stock merge into one list, **To Buy**.
   **Stocked** stays and means "in the house". **Recipes** stays and the frame ignores it.
 - **Tags are Trello labels.** Each card carries:
-  - one **category** label (Produce, Bakery, Dairy & Refrigerated, Meat & Seafood, Pantry,
+  - one **category** label (Fruits & Veggies, Bakery, Dairy & Refrigerated, Meat & Seafood, Pantry,
     Snacks, Spices & Seasoning, Household);
   - zero or one **store** label (for example "Tong Li"), which drives the store tabs;
   - optionally the **Low** label, which replaces the old Running Low list. The frame shows it as a
@@ -85,9 +85,10 @@ Run once, with the owner shown the plan first (dry run output) and approving bef
 2. Move cards from Running Low into To Buy and add Low to them; move Need to Stock into To Buy and
    create a store label from its `Store:` line.
 3. Label every card in To Buy and Stocked from its `Category:` line, using this mapping:
-   Produce, Produce & Fresh → Produce; Bread & Bakery → Bakery; Dairy & Refrigerated → Dairy &
+   Produce, Produce & Fresh → Fruits & Veggies; Bread & Bakery → Bakery; Dairy & Refrigerated → Dairy &
    Refrigerated; Meat, Meat & Seafood → Meat & Seafood; Pantry → Pantry; Snacks, Snacks & Pantry →
-   Snacks; Spices, Spices & Seasoning → Spices & Seasoning; Household → Household.
+   Snacks; Spices, Spices & Seasoning → Spices & Seasoning; Household → Household. Then names matching cordial, Pepsi or a Sodastream
+   mix/syrup/flavour move to Pantry (Sodastream gas stays Household).
 4. Archive the now-empty lists. Leave the `Category:` lines in descriptions for now so Hermes
    keeps working until it has the new prompt; the frame ignores them.
 

@@ -10,7 +10,7 @@ function makeBoard() {
   return {
     id: 'bfull',
     lists: [{ id: 'lbuy', name: '🛒 To Buy' }, { id: 'lstock', name: 'Stocked' }],
-    labels: [{ id: 'lab-prod', name: 'Produce' }, { id: 'lab-low', name: 'Low' }, { id: 'lab-s1', name: 'Store: Aldi' }],
+    labels: [{ id: 'lab-prod', name: 'Fruits & Veggies' }, { id: 'lab-low', name: 'Low' }, { id: 'lab-s1', name: 'Store: Aldi' }],
     cards: [
       { id: 'c1', name: 'Milk', idList: 'lbuy', idLabels: ['lab-prod', 'lab-low'], desc: '', dateLastActivity: '2026-10-17T00:00:00Z' },
       { id: 'c2', name: 'Rice', idList: 'lstock', idLabels: [], desc: '', dateLastActivity: '2026-10-16T00:00:00Z' }
@@ -168,7 +168,7 @@ test('add creates a missing category label, then the card with idLabels', async 
 test('add creates a missing store label named "Store: <name>"', async function () {
   var f = fake();
   var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
-  await t.add({ name: 'Eggs', cat: 'Produce', store: 'Costco' });
+  await t.add({ name: 'Eggs', cat: 'Fruits & Veggies', store: 'Costco' });
   assert.equal(f.writes()[0].query.name, 'Store: Costco');
   assert.equal(f.writes()[1].query.idLabels, 'lab-prod,new-Store: Costco');
 });
@@ -213,7 +213,7 @@ test('validation failures throw BadRequest before any call', async function () {
   await assert.rejects(t.setCategory('c1', 'Nope'), BadRequest);
   await assert.rejects(t.setStore('c1', new Array(42).join('a')), BadRequest);
   await assert.rejects(t.setStore('c1', 'bad\nname'), BadRequest);
-  await assert.rejects(t.add({ name: '  ', cat: 'Produce' }), BadRequest);
+  await assert.rejects(t.add({ name: '  ', cat: 'Fruits & Veggies' }), BadRequest);
   assert.equal(f.calls.length, 0);
 });
 

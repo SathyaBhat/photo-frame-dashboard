@@ -1,7 +1,7 @@
 // Maps a Trello board (GET /boards/:id?lists=open&cards=open&labels=all) to the dashboard's grocery items.
 // Lists and labels are found by name. Cards in To Buy and Stocked are used; every other list is ignored.
 
-export var CATEGORIES = ['Produce', 'Bakery', 'Dairy & Refrigerated', 'Meat & Seafood', 'Pantry', 'Snacks', 'Spices & Seasoning', 'Household'];
+export var CATEGORIES = ['Fruits & Veggies', 'Bakery', 'Dairy & Refrigerated', 'Meat & Seafood', 'Pantry', 'Snacks', 'Spices & Seasoning', 'Household'];
 
 var STOCKED_CAP = 60;
 var STORE_PREFIX = 'Store: ';

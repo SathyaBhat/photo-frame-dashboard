@@ -7,7 +7,7 @@ var fixture = JSON.parse(readFileSync(new URL('./fixtures/trello-board.json', im
 function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
 var MAPPING = [
-  ['Produce', 'Produce'], ['Produce & Fresh', 'Produce'], ['Bread & Bakery', 'Bakery'],
+  ['Produce', 'Fruits & Veggies'], ['Produce & Fresh', 'Fruits & Veggies'], ['Bread & Bakery', 'Bakery'],
   ['Dairy & Refrigerated', 'Dairy & Refrigerated'], ['Meat', 'Meat & Seafood'], ['Meat & Seafood', 'Meat & Seafood'],
   ['Pantry', 'Pantry'], ['Snacks', 'Snacks'], ['Snacks & Pantry', 'Snacks'], ['Spices', 'Spices & Seasoning'],
   ['Spices & Seasoning', 'Spices & Seasoning'], ['Household', 'Household']
@@ -125,4 +125,30 @@ test('adds and moves done, archive pending: only the archive remains', function 
   var p = planMigration(b);
   assert.deepEqual(p.steps.map(function (s) { return s.op + ':' + s.id; }).sort(),
     ['archiveList:a10000000000000000000003', 'archiveList:a10000000000000000000004']);
+});
+
+function labelFor(name, category) {
+  var plan = planMigration(boardWith([{ name: name, desc: 'Category: ' + category }]));
+  var adds = plan.steps.filter(function (s) { return s.op === 'addLabel'; });
+  assert.equal(adds.length, 1, name);
+  return adds[0].label;
+}
+
+test('fruit names are not overridden and stay in Fruits & Veggies; other names keep their category', function () {
+  assert.equal(labelFor('Hass Avocado', 'Produce'), 'Fruits & Veggies');
+  assert.equal(labelFor('Lemon Juice', 'Pantry'), 'Pantry');
+  assert.equal(labelFor('Snacking Carrots 1kg', 'Snacks'), 'Snacks');
+});
+
+test('name overrides: drinks and mixes go to Pantry, Sodastream gas stays Household', function () {
+  assert.equal(labelFor("Cottee's Cordial Orange Zero Sugar 1L", 'Snacks'), 'Pantry');
+  assert.equal(labelFor('Sodastream Pepsi Max Soda Mix 440ml', 'Household'), 'Pantry');
+  assert.equal(labelFor('Pepsi Max Vanilla 440ml', 'Snacks'), 'Pantry');
+  assert.equal(labelFor('Sodastream Mix / Orange Cordial', 'Household'), 'Pantry');
+  assert.equal(labelFor('Sodastream Gas Cylinder', 'Household'), 'Household');
+});
+
+test('name overrides never change a label already on the card', function () {
+  var b = boardWith([{ name: 'Lemon', desc: '', idLabels: [] }]);
+  assert.deepEqual(planMigration(b).steps, []);
 });

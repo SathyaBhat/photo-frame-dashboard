@@ -14,7 +14,7 @@
 
 - Credentials `TRELLO_API_KEY`, `TRELLO_TOKEN`, `TRELLO_BOARD` live in the server environment only; never committed, logged, put in an error message, or sent to the browser. Trello takes them as query parameters, so rethrow errors without the URL.
 - Without credentials, `/api/groceries*` answers 503 and the frame keeps its mock list.
-- Lists found by name: `To Buy`, `Stocked` (ignore `Recipes`). Category labels, matched by name: Produce, Bakery, Dairy & Refrigerated, Meat & Seafood, Pantry, Snacks, Spices & Seasoning, Household. Low label: `Low`. Store labels: `Store: <name>` (tab shows `<name>`). Any other label is ignored.
+- Lists found by name: `To Buy`, `Stocked` (ignore `Recipes`). Category labels, matched by name: Fruits & Veggies, Bakery, Dairy & Refrigerated, Meat & Seafood, Pantry, Snacks, Spices & Seasoning, Household. Low label: `Low`. Store labels: `Store: <name>` (tab shows `<name>`). Any other label is ignored.
 - Stocked: the 60 most recently active cards (`dateLastActivity`), newest first; the drawer shows those from the last 24 hours.
 - Cache about 30 s; writes invalidate it; stale copy served on failure with `stale: true`.
 - Frame: Chromium 106, no 4- or 8-digit hex colours, touch targets at least about 56 px, no heavy animation, `var`/`function` inside IIFEs, all user data through `App.esc()`.
@@ -99,7 +99,7 @@
 
 **Interfaces:**
 - Produces: `export function planMigration(board): Step[]` (pure; steps like `{op:'createLabel',name}`, `{op:'moveCard',id,toList,label?}`, `{op:'addLabel',id,label}`, `{op:'archiveList',id}`), and a CLI: reads `TRELLO_*` from the environment, prints the plan, writes only with `--apply`.
-- Category mapping (exact): Produce, Produce & Fresh → Produce; Bread & Bakery → Bakery; Dairy & Refrigerated → Dairy & Refrigerated; Meat, Meat & Seafood → Meat & Seafood; Pantry → Pantry; Snacks, Snacks & Pantry → Snacks; Spices, Spices & Seasoning → Spices & Seasoning; Household → Household. Running Low cards move to To Buy with `Low`; Need to Stock cards move to To Buy and get `Store: <Store: line>` when present. Descriptions are left alone. Idempotent: a second run plans nothing.
+- Category mapping (exact): Produce, Produce & Fresh → Fruits & Veggies; Bread & Bakery → Bakery; Dairy & Refrigerated → Dairy & Refrigerated; Meat, Meat & Seafood → Meat & Seafood; Pantry → Pantry; Snacks, Snacks & Pantry → Snacks; Spices, Spices & Seasoning → Spices & Seasoning; Household → Household; then names matching cordial, Pepsi or a Sodastream mix/syrup/flavour go to Pantry (Sodastream gas stays Household). Running Low cards move to To Buy with `Low`; Need to Stock cards move to To Buy and get `Store: <Store: line>` when present. Descriptions are left alone. Idempotent: a second run plans nothing.
 
 - [ ] **Step 1: Write failing tests:** every mapping row; Running Low gets `Low`; Need to Stock gets the store label; a card with an unknown `Category:` gets no label and is reported in a `warnings` array; running `planMigration` on an already-migrated board returns `[]`.
 - [ ] **Step 2: Run;** expect FAIL.

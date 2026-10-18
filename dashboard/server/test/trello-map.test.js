@@ -9,7 +9,7 @@ function build(b) { return buildGroceries({ board: b || board(), now: NOW }); }
 function byName(r, name) { return r.items.filter(function (i) { return i.name === name; })[0]; }
 
 test('CATEGORIES lists the eight names in display order', function () {
-  assert.deepEqual(CATEGORIES, ['Produce', 'Bakery', 'Dairy & Refrigerated', 'Meat & Seafood', 'Pantry', 'Snacks', 'Spices & Seasoning', 'Household']);
+  assert.deepEqual(CATEGORIES, ['Fruits & Veggies', 'Bakery', 'Dairy & Refrigerated', 'Meat & Seafood', 'Pantry', 'Snacks', 'Spices & Seasoning', 'Household']);
 });
 
 test('listKey drops leading emoji and whitespace and ignores case', function () {
@@ -125,7 +125,7 @@ test('resolveIds finds lists and labels by name', function () {
   var low = b.labels.filter(function (l) { return l.name === 'Low'; })[0].id;
   assert.equal(ids.labels.Low, low);
   assert.ok(ids.labels['Store: Tong Li']);
-  assert.ok(ids.labels.Produce);
+  assert.ok(ids.labels['Fruits & Veggies']);
 });
 
 test('resolveIds leaves Stocked null when missing', function () {

@@ -9,7 +9,7 @@ var STORE_PREFIX = 'Store: ';
 
 // Old Category: values (lower case) -> label.
 var MAPPING = {
-  'produce': 'Produce', 'produce & fresh': 'Produce',
+  'produce': 'Fruits & Veggies', 'produce & fresh': 'Fruits & Veggies',
   'bread & bakery': 'Bakery',
   'dairy & refrigerated': 'Dairy & Refrigerated',
   'meat': 'Meat & Seafood', 'meat & seafood': 'Meat & Seafood',
@@ -18,6 +18,19 @@ var MAPPING = {
   'spices': 'Spices & Seasoning', 'spices & seasoning': 'Spices & Seasoning',
   'household': 'Household'
 };
+
+// Name-based overrides applied after the Category: mapping; first match wins.
+var OVERRIDES = [
+  { re: /cordial|pepsi|soda ?stream (mix|soda syrup|flavou?r)|soda mix/i, label: 'Pantry' }
+];
+
+function overrideCategory(name, cat) {
+  for (var i = 0; i < OVERRIDES.length; i++) {
+    var o = OVERRIDES[i];
+    if (o.re.test(name)) return o.label;
+  }
+  return cat;
+}
 
 function descLine(desc, field) {
   var re = new RegExp('^\\s*' + field + ':(.*)$', 'i');
@@ -58,6 +71,7 @@ export function planMigration(board) {
     open.filter(function (c) { return c.idList === list.id; }).forEach(function (card) {
       var raw = descLine(card.desc, 'Category');
       var cat = MAPPING[raw.toLowerCase()];
+      if (cat) cat = overrideCategory(card.name || '', cat);
       if (cat) addIfMissing(card, cat);
       else if (!(card.idLabels || []).some(function (id) { return CATEGORIES.some(function (c) { return idByName[c] === id; }); })) {
         warnings.push('"' + card.name + '": ' + (raw ? 'unknown Category line, no category label' : 'no Category line, no category label'));
