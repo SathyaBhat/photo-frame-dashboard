@@ -152,3 +152,32 @@ test('name overrides never change a label already on the card', function () {
   var b = boardWith([{ name: 'Lemon', desc: '', idLabels: [] }]);
   assert.deepEqual(planMigration(b).steps, []);
 });
+
+test('cards without a Category: line use the owner fallback table', function () {
+  [['Coffee Beans 1kg (Giovanni Carlo Smooth)', 'Pantry'], ['Spicy Italian Sausage', 'Meat & Seafood'],
+    ['Huang Fei Hong Spicy Peanuts', 'Snacks'], ['Lime Juice', 'Pantry'], ['Low GI White Loaf 330g', 'Bakery'],
+    ['Haidilao Spicy Cumin BBQ Seasoning 40g', 'Spices & Seasoning']].forEach(function (row) {
+    var plan = planMigration(boardWith([{ name: ' ' + row[0].toUpperCase() + ' ', desc: 'just a note' }]));
+    assert.deepEqual(plan.steps.filter(function (s) { return s.op === 'addLabel'; }).map(function (s) { return s.label; }), [row[1]], row[0]);
+    assert.deepEqual(plan.warnings, []);
+  });
+});
+
+test('the fallback table never beats a Category: line or an existing label', function () {
+  assert.equal(labelFor('Lime Juice', 'Snacks'), 'Snacks');
+  var plan = planMigration(boardWith([{ name: 'Lime Juice', desc: 'Category: Gadgets' }]));
+  assert.deepEqual(plan.steps, []);
+  assert.equal(plan.warnings.length, 1);
+  var b = boardWith([{ name: 'Lime Juice', idLabels: ['lab-bakery'] }]);
+  b.labels.push({ id: 'lab-bakery', name: 'Bakery' });
+  assert.deepEqual(planMigration(b), { steps: [], warnings: [] });
+});
+
+test('fallback cards in Running Low get the category before the move and Low', function () {
+  var b = clone(fixture);
+  var run = b.lists.filter(function (l) { return /running low/i.test(l.name); })[0];
+  b.cards = [{ id: 'z1', name: 'Lime Juice', idList: run.id, closed: false, idLabels: [], desc: '' }];
+  var ops = planMigration(b).steps.map(function (s) { return s.op + ':' + (s.label || s.name); });
+  assert.ok(ops.indexOf('addLabel:Pantry') >= 0 && ops.indexOf('addLabel:Pantry') < ops.indexOf('moveCard:Lime Juice'), ops.join('|'));
+  assert.ok(ops.indexOf('addLabel:Low') >= 0);
+});

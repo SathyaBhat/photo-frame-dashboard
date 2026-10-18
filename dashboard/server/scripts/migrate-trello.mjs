@@ -19,6 +19,16 @@ var MAPPING = {
   'household': 'Household'
 };
 
+// The owner's one-off decisions for cards migrated without a Category: line (exact names, lower case).
+var FALLBACK = {
+  'coffee beans 1kg (giovanni carlo smooth)': 'Pantry',
+  'spicy italian sausage': 'Meat & Seafood',
+  'huang fei hong spicy peanuts': 'Snacks',
+  'lime juice': 'Pantry',
+  'low gi white loaf 330g': 'Bakery',
+  'haidilao spicy cumin bbq seasoning 40g': 'Spices & Seasoning'
+};
+
 // Name-based overrides applied after the Category: mapping; first match wins.
 var OVERRIDES = [
   { re: /cordial|pepsi|soda ?stream (mix|soda syrup|flavou?r)|soda mix/i, label: 'Pantry' }
@@ -72,8 +82,10 @@ export function planMigration(board) {
       var raw = descLine(card.desc, 'Category');
       var cat = MAPPING[raw.toLowerCase()];
       if (cat) cat = overrideCategory(card.name || '', cat);
+      var labelled = (card.idLabels || []).some(function (id) { return CATEGORIES.some(function (c) { return idByName[c] === id; }); });
+      if (!cat && !raw && !labelled) cat = FALLBACK[String(card.name || '').trim().toLowerCase()];
       if (cat) addIfMissing(card, cat);
-      else if (!(card.idLabels || []).some(function (id) { return CATEGORIES.some(function (c) { return idByName[c] === id; }); })) {
+      else if (!labelled) {
         warnings.push('"' + card.name + '": ' + (raw ? 'unknown Category line, no category label' : 'no Category line, no category label'));
       }
       if (list === running || list === need) {
