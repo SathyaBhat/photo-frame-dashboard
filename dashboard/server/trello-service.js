@@ -143,8 +143,15 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
         var ids = resolveIds(raw);
         var target = done ? ids.stocked : ids.toBuy;
         if (!target) throw new Error(done ? 'no Stocked list' : 'no To Buy list');
-        if (card.idList === target) return;
-        await api('PUT', '/cards/' + id, { idList: target, pos: 'top' });
+        if (card.idList !== target) await api('PUT', '/cards/' + id, { idList: target, pos: 'top' });
+        // Bought: it is no longer running low. Un-ticking leaves the labels as they are.
+        var low = ids.labels['Low'];
+        if (!done || !low || !has(card, low)) return;
+        try {
+          await api('DELETE', '/cards/' + id + '/idLabels/' + low, {});
+        } catch (e) {
+          if (!(e instanceof NotFound)) throw e;
+        }
       });
     },
 

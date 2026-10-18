@@ -105,12 +105,48 @@ test('BadRequest is the one from ha-map', function () {
 
 test('tick of a To Buy card issues one PUT to Stocked, then refetches', async function () {
   var f = fake();
+  f.board.cards[0].idLabels = ['lab-prod'];
   var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
   await t.get();
   var res = await t.tick('c1', true);
   assert.deepEqual(f.writes(), [{ method: 'PUT', path: '/cards/c1', query: { idList: 'lstock', pos: 'top' } }]);
   assert.equal(f.reads().length, 2);
   assert.ok(res.data && res.stale === false);
+});
+
+test('tick done:true of a card labelled Low moves it and removes Low with exactly one DELETE', async function () {
+  var f = fake();
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.get();
+  await t.tick('c1', true);
+  assert.deepEqual(f.writes(), [
+    { method: 'PUT', path: '/cards/c1', query: { idList: 'lstock', pos: 'top' } },
+    { method: 'DELETE', path: '/cards/c1/idLabels/lab-low', query: {} }
+  ]);
+});
+
+test('tick done:true of an already-Stocked card that still has Low removes Low without a move', async function () {
+  var f = fake();
+  f.board.cards[1].idLabels = ['lab-low'];
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.tick('c2', true);
+  assert.deepEqual(f.writes(), [{ method: 'DELETE', path: '/cards/c2/idLabels/lab-low', query: {} }]);
+});
+
+test('tick done:false leaves the Low label alone', async function () {
+  var f = fake();
+  f.board.cards[1].idLabels = ['lab-low'];
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.tick('c2', false);
+  assert.deepEqual(f.writes(), [{ method: 'PUT', path: '/cards/c2', query: { idList: 'lbuy', pos: 'top' } }]);
+});
+
+test('a 404 on the Low DELETE during a tick is not an error', async function () {
+  var f = fake({ fail: function (m) { return m === 'DELETE'; }, error: new NotFound('trello -> HTTP 404') });
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  var res = await t.tick('c1', true);
+  assert.ok(res.data);
+  assert.equal(f.writes().length, 2);
 });
 
 test('tick done:false moves a Stocked card back to To Buy', async function () {
