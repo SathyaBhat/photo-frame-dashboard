@@ -57,9 +57,20 @@
   // rooms/devices/scenes/media replace it and the mock-only sections (climate, cameras, locks, garage) go away.
   var HOME_MS = 10 * 1000;
   var homeJSON = '';
-  D.homeLive = false;
+  D.homeLive = true; // there is no mock home any more: until the first poll answers the views show an empty one
   D.homeOffline = false;
   App.homeBusy = 0; // writes in flight: don't let a poll overwrite the optimistic state
+
+  // Presence: match HA person entities to the people in DATA by their `ha` id. A person HA doesn't report stays away.
+  function applyPeople(list) {
+    var by = {};
+    (list || []).forEach(function (x) { by[x.id] = x; });
+    D.people.forEach(function (p) {
+      var x = by[p.ha];
+      p.home = !!(x && x.home);
+      p.status = x ? x.status : 'Unknown';
+    });
+  }
 
   function applyHome(h) {
     var json = JSON.stringify(h);
@@ -69,6 +80,7 @@
     if (!changed && D.homeLive) return;
     D.rooms = h.rooms; D.devices = h.devices; D.scenes = h.scenes; D.media = h.media;
     if (h.battery) D.battery = h.battery;
+    applyPeople(h.people);
     D.climate = null; D.cameras = []; D.homeLive = true;
     App.emit('data');
     App.rerender();

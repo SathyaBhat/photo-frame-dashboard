@@ -94,3 +94,14 @@ test('buildBattery reads solar from meter 2 (AC-coupled), never negative', funct
   assert.equal(buildBattery(states, 'sensor.inv', 10, 15).solarKw, 0);
   assert.equal(buildBattery([st('sensor.inv_soc', '50')], 'sensor.inv', 10, 15).solarKw, 0);
 });
+
+test('buildHome reports presence from person entities', function () {
+  var h = buildHome({ states: [
+    st('person.a', 'home', { friendly_name: 'A' }), st('person.b', 'not_home'), st('person.c', 'Office'), st('person.d', 'unavailable'),
+    st('light.x', 'on')
+  ] });
+  assert.deepEqual(h.people, [
+    { id: 'person.a', home: true, status: 'Home' }, { id: 'person.b', home: false, status: 'Away' },
+    { id: 'person.c', home: false, status: 'Office' }, { id: 'person.d', home: false, status: 'Unknown' }
+  ]);
+});

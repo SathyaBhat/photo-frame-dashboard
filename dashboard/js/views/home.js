@@ -44,7 +44,7 @@
 
   function presence() {
     return D.people.map(function (p) {
-      var sub = p.home ? 'Home' : (p.eta ? '<b>ETA ' + p.eta + ' min</b>' : p.status);
+      var sub = App.esc(p.status || (p.home ? 'Home' : 'Away'));
       return '<div class="h-who' + (p.home ? ' is-home' : '') + '" style="' + App.pstyle(p) + '">' +
         App.avatar(p, 36, p.home ? '' : 'avatar--away') +
         '<span><b>' + p.name + '</b><small>' + sub + '</small></span></div>';
@@ -53,6 +53,7 @@
 
   function hero() {
     var b = D.battery;
+    if (!b) return '';
     var usable = Math.max(0, b.soc - b.reserve) / 100 * b.capacityKwh;
     var left = b.soc / 100 * b.capacityKwh;
     var title = b.flowKw < 0 ? 'Powering home' : (b.flowKw > 0 ? 'Charging' : 'On standby');

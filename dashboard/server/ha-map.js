@@ -53,7 +53,16 @@ export function buildHome(input) {
       volume: vol == null ? null : Math.round(vol * 100)
     };
   }
-  return { rooms: roomOrder, devices: devices, scenes: scenes, media: media };
+  return { rooms: roomOrder, devices: devices, scenes: scenes, media: media, people: buildPeople(states) };
+}
+
+// Presence from the person.* entities. A person's state is "home", "not_home", or the name of the zone they are in.
+function buildPeople(states) {
+  return states.filter(function (s) { return domain(s.entity_id) === 'person'; }).map(function (s) {
+    var home = s.state === 'home';
+    var status = home ? 'Home' : s.state === 'not_home' ? 'Away' : s.state === 'unknown' || s.state === 'unavailable' ? 'Unknown' : s.state;
+    return { id: s.entity_id, home: home, status: status };
+  });
 }
 
 function numState(states, id) {
