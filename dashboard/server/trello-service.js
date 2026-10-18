@@ -10,7 +10,7 @@ var STORE_PREFIX = 'Store: ';
 
 // Credentials travel as query params and fetch's own errors can quote the URL, so every failure is
 // rethrown with a fixed message.
-function defaultFetchJSON(key, token) {
+export function defaultFetchJSON(key, token) {
   return async function (method, path, query) {
     var params = new URLSearchParams(query || {});
     params.set('key', key);

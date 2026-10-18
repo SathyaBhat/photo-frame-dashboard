@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
+    "migrate:trello": "node scripts/migrate-trello.mjs",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
