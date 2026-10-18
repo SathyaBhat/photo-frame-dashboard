@@ -46,7 +46,7 @@
     return D.people.map(function (p) {
       var sub = App.esc(p.status || (p.home ? 'Home' : 'Away'));
       return '<div class="h-who' + (p.home ? ' is-home' : '') + '" style="' + App.pstyle(p) + '">' +
-        App.avatar(p, 36, p.home ? '' : 'avatar--away') +
+        App.avatar(p, 48, p.home ? '' : 'avatar--away') +
         '<span><b>' + p.name + '</b><small>' + sub + '</small></span></div>';
     }).join('');
   }
