@@ -100,6 +100,58 @@
       });
   };
 
+  // Groceries (the Trello board), via the frame server. Until the first success the mock list stays. Items
+  // name their store by name (not label id), so a store's id here is its name. The Shopping view is not
+  // yet aware of live data, so items get qty 1 if the server sent none.
+  var GROC_MS = 60 * 1000;
+  var grocJSON = '';
+  D.groceriesLive = false;
+  D.groceriesOffline = false;
+  App.groceriesBusy = 0; // writes in flight: don't let a poll overwrite the optimistic state
+
+  function applyGroceries(res) {
+    var g = res.groceries;
+    if (App.groceriesBusy) return;
+    var json = JSON.stringify(g);
+    var changed = json !== grocJSON || D.groceriesOffline || !D.groceriesLive;
+    grocJSON = json;
+    D.groceriesOffline = false;
+    if (!changed) return;
+    var order = g.categories.concat(['Other']);
+    D.groceries = g.items.map(function (i) { if (i.qty == null) i.qty = 1; return i; });
+    D.stores = g.stores.map(function (s) { return { id: s.name, name: s.name }; });
+    D.catOrder = { all: order.slice() };
+    D.stores.forEach(function (s) { D.catOrder[s.id] = order.slice(); });
+    D.groceriesLive = true;
+    App.emit('data');
+    App.rerender();
+  }
+
+  function loadGroceries() {
+    if (App.groceriesBusy) return Promise.resolve();
+    return getJSON('groceries').then(applyGroceries).catch(function (e) {
+      if (e.message === 'HTTP 503') return; // server has no Trello configured: stay on mock
+      console.warn('HomeHQ live groceries failed, keeping current list:', e.message);
+      if (D.groceriesLive && !D.groceriesOffline) { D.groceriesOffline = true; App.rerender(); }
+    });
+  }
+
+  // Write to the board. Rejects if the server or Trello refused. The reply carries the fresh list.
+  App.groceriesWrite = function (path, body) {
+    App.groceriesBusy++;
+    return fetch(API + path, { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function (res) {
+        App.groceriesBusy--;
+        applyGroceries(res);
+      }, function (e) {
+        App.groceriesBusy--;
+        throw e;
+      });
+  };
+
   // Deploy detection: version.json is rewritten on every build. When it differs from the id this
   // page was built with, reload, but only once nobody has touched the screen for a while.
   var BUILD = typeof __BUILD_ID__ === 'undefined' ? null : __BUILD_ID__;
@@ -119,6 +171,8 @@
     loadWeather();
     loadHome();
     loadCalendar();
+    loadGroceries();
+    setInterval(loadGroceries, GROC_MS);
     setInterval(loadHome, HOME_MS);
     setInterval(loadCalendar, CAL_MS);
     setInterval(loadWeather, WEATHER_MS);
