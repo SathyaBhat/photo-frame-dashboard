@@ -303,9 +303,17 @@
 
   // ------------------------------------------------------------ idle
   App.idle = { home: 60, ambient: 120 }; // overwritten from Settings at startup
-  var idleSec = 0;
+  var idleSec = 0, wasNight = null;
   function onIdleTick() {
     idleSec++;
+    // Night mode only ends by itself when the night window does (a manual Night from the demo
+    // controls in the daytime stays until someone leaves it).
+    var night = App.isNight();
+    if (wasNight && !night && (App.mode === 'night' || App.mode === 'nightdash')) {
+      App.setMode('day');
+      App.go('home');
+    }
+    wasNight = night;
     var blocked = $('#takeover').classList.contains('is-open');
     if (App.mode === 'nightdash' && idleSec >= 20) { App.setMode('night'); return; }
     if (App.mode !== 'day' || blocked) return;
