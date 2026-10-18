@@ -4,6 +4,8 @@ import { buildWeather } from './weather-map.js';
 import { buildEnergy, parseHistory, dayStart, localDay, nextDay } from './energy-map.js';
 import { buildHome, buildBattery, buildCommand, BadRequest } from './ha-map.js';
 import { createCalendar, fetchFeed } from './calendar-service.js';
+import { createTrello } from './trello-service.js';
+import { groceriesRoute } from './groceries-route.js';
 
 var BOM = 'https://api.weather.bom.gov.au/v1';
 var TTL = 15 * 60 * 1000;
@@ -22,6 +24,11 @@ var HOME_TTL = 5000;
 // The shared Google Calendar's secret iCal address. Optional: without it /api/calendar answers 503 and the frame keeps its mock events.
 // The address is a credential: never log it or put it in an error.
 var GCAL_ICS_URL = process.env.GCAL_ICS_URL || '';
+// Trello board for the grocery list. Optional: without all three, /api/groceries answers 503 and the frame keeps its mock list.
+// The key and token are credentials: never log them or put them in an error.
+var TRELLO_KEY = process.env.TRELLO_API_KEY || '';
+var TRELLO_TOKEN = process.env.TRELLO_TOKEN || '';
+var TRELLO_BOARD = process.env.TRELLO_BOARD || '';
 if (!GEOHASH) { console.error('Set BOM_LOCATION to a BOM geohash (find one: https://api.weather.bom.gov.au/v1/locations?search=<suburb>)'); process.exit(1); }
 
 async function bom(path, optional) {
@@ -36,6 +43,7 @@ async function bom(path, optional) {
 }
 
 var calendar = GCAL_ICS_URL ? createCalendar({ url: GCAL_ICS_URL, fetchText: fetchFeed }) : null;
+var trello = TRELLO_KEY && TRELLO_TOKEN && TRELLO_BOARD ? createTrello({ key: TRELLO_KEY, token: TRELLO_TOKEN, board: TRELLO_BOARD }) : null;
 
 var location; // timezone rarely changes; fetch once
 async function fetchWeather() {
@@ -179,6 +187,8 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+var groceries = groceriesRoute({ trello: trello, readJSON: readJSON, send: send });
+
 createServer(async function (req, res) {
   var path = new URL(req.url, 'http://x').pathname;
   if (path === '/api/energy' && req.method === 'GET') {
@@ -192,6 +202,7 @@ createServer(async function (req, res) {
     }
   }
   if (path === '/api/home' || /^\/api\/(device|scene|media)\//.test(path)) return homeRoute(req, res, path);
+  if (path === '/api/groceries' || path.indexOf('/api/groceries/') === 0) return groceries(req, res, path);
   if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
   if (path === '/api/health') return send(res, 200, { ok: true });
   if (path === '/api/calendar') {
@@ -212,4 +223,4 @@ createServer(async function (req, res) {
     }
   }
   send(res, 404, { error: 'not found' });
-}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off') + ', calendar ' + (GCAL_ICS_URL ? 'on' : 'off')); });
+}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off') + ', calendar ' + (GCAL_ICS_URL ? 'on' : 'off') + ', trello ' + (trello ? 'on' : 'off')); });

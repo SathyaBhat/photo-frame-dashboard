@@ -41,6 +41,10 @@ services:
       - HA_BATTERY_RESERVE=${HA_BATTERY_RESERVE:-}
       # Shared Google Calendar's secret iCal address (optional). Without it the frame keeps its mock events.
       - GCAL_ICS_URL=${GCAL_ICS_URL:-}
+      # Trello board for the grocery list (optional, all three needed). Without them the frame keeps its mock groceries.
+      - TRELLO_API_KEY=${TRELLO_API_KEY:-}
+      - TRELLO_TOKEN=${TRELLO_TOKEN:-}
+      - TRELLO_BOARD=${TRELLO_BOARD:-}
     networks:
       - dokploy-network
     labels:
