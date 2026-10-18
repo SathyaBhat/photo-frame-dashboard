@@ -44,23 +44,35 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
   var nowMs = clock || Date.now;
   var api = fetchJSON || defaultFetchJSON(key, token);
   var cache = { at: 0, data: null, raw: null, inflight: null };
+  var gen = 0;
+  var creating = {};
 
   async function get() {
     if (cache.data && nowMs() - cache.at < ttl) return { data: cache.data, stale: false, at: cache.at };
+    // A write bumps gen; a read begun before it is never joined by, or cached for, later callers.
+    var mine = cache.inflight && cache.inflight.gen === gen ? cache.inflight : null;
+    if (!mine) {
+      mine = { gen: gen, promise: api('GET', '/boards/' + board, { lists: 'open', cards: 'open', labels: 'all' })
+        .then(function (raw) { return { raw: raw, data: buildGroceries({ board: raw, now: new Date(nowMs()) }) }; }) };
+      cache.inflight = mine;
+    }
     try {
-      cache.inflight = cache.inflight || api('GET', '/boards/' + board, { lists: 'open', cards: 'open', labels: 'all' })
-        .then(function (raw) { return { raw: raw, data: buildGroceries({ board: raw, now: new Date(nowMs()) }) }; });
-      var got = await cache.inflight;
-      cache.raw = got.raw; cache.data = got.data; cache.at = nowMs();
-      return { data: cache.data, stale: false, at: cache.at };
+      var got = await mine.promise;
+      if (mine.gen === gen) {
+        cache.raw = got.raw; cache.data = got.data; cache.at = nowMs();
+        return { data: cache.data, stale: false, at: cache.at };
+      }
+      return { data: got.data, stale: false, at: nowMs() };
     } catch (e) {
       console.error('trello refresh failed:', e.message);
       if (cache.data) return { data: cache.data, stale: true, at: cache.at };
       throw e;
     } finally {
-      cache.inflight = null;
+      if (cache.inflight === mine) cache.inflight = null;
     }
   }
+
+  function invalidate() { gen++; cache.at = 0; }
 
   // The last board read, fetched if there is none yet.
   async function current() {
@@ -68,12 +80,17 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
     return cache.raw;
   }
 
+  // One POST /labels per missing name, however many writes ask at once.
   async function labelId(raw, name) {
     var ids = resolveIds(raw);
     if (ids.labels[name]) return ids.labels[name];
-    var made = await api('POST', '/labels', { name: name, color: 'null', idBoard: raw.id });
-    raw.labels = (raw.labels || []).concat([{ id: made.id, name: name }]);
-    return made.id;
+    if (!creating[name]) {
+      creating[name] = api('POST', '/labels', { name: name, color: 'null', idBoard: raw.id })
+        .then(function (made) { delete creating[name]; return made.id; }, function (e) { delete creating[name]; throw e; });
+    }
+    var id = await creating[name];
+    if (!resolveIds(raw).labels[name]) raw.labels = (raw.labels || []).concat([{ id: id, name: name }]);
+    return id;
   }
 
   function labelNames(raw) {
@@ -90,8 +107,9 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
       if (card) await fn(raw, card);
     } catch (e) {
       if (!(e instanceof NotFound)) throw e;
+    } finally {
+      invalidate();
     }
-    cache.at = 0;
     return get();
   }
 
@@ -168,8 +186,11 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
       if (store) labels.push(await labelId(raw, STORE_PREFIX + store));
       var query = { idList: toBuy, name: name, pos: 'top' };
       if (labels.length) query.idLabels = labels.join(',');
-      await api('POST', '/cards', query);
-      cache.at = 0;
+      try {
+        await api('POST', '/cards', query);
+      } finally {
+        invalidate();
+      }
       return get();
     }
   };

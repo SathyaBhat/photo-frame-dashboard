@@ -216,3 +216,45 @@ test('validation failures throw BadRequest before any call', async function () {
   await assert.rejects(t.add({ name: '  ', cat: 'Produce' }), BadRequest);
   assert.equal(f.calls.length, 0);
 });
+
+test('two concurrent adds with the same missing label create it once', async function () {
+  var f = fake();
+  var slow = function (m, p, q) { return new Promise(function (r) { setTimeout(r, 10); }).then(function () { return f(m, p, q); }); };
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: slow, clock: clock(T0) });
+  await t.get();
+  await Promise.all([t.add({ name: 'A', cat: 'Bakery' }), t.add({ name: 'B', cat: 'Bakery' })]);
+  var posts = f.writes().filter(function (c) { return c.path === '/labels'; });
+  assert.equal(posts.length, 1);
+  assert.equal(f.writes().filter(function (c) { return c.path === '/cards'; }).length, 2);
+});
+
+test('a read begun before a write is neither joined by nor cached after it', async function () {
+  var f = fake(), c = clock(T0), release, hold = false;
+  var fx = function (m, p, q) {
+    if (m === 'GET' && hold) {
+      hold = false;
+      var snap = JSON.parse(JSON.stringify(f.board));
+      return new Promise(function (r) { release = function () { r(snap); }; });
+    }
+    if (m === 'PUT') f.board.cards[0].idList = 'lstock';
+    return f(m, p, q);
+  };
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: fx, ttlMs: 1000, clock: c });
+  await t.get();
+  c.t += 2000; hold = true;
+  var old = t.get();
+  var res = await t.tick('c1', true);
+  assert.equal(res.data.items.filter(function (i) { return i.id === 'c1'; })[0].done, true);
+  release(); await old;
+  var next = await t.get();
+  assert.equal(next.data.items.filter(function (i) { return i.id === 'c1'; })[0].done, true);
+});
+
+test('a failed multi-step write still invalidates the cache', async function () {
+  var f = fake({ fail: function (m, p) { return p === '/labels'; } });
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.get();
+  await assert.rejects(t.setCategory('c1', 'Pantry'), /down/);
+  await t.get();
+  assert.equal(f.reads().length, 2);
+});
