@@ -1,6 +1,7 @@
 // Shopping: categorized list (left) + quick-add with usuals (right).
 // Mock list (D.groceriesLive false): local only, with quantities. Live list (the Trello board via live.js):
 // taps write back through App.groceriesWrite; there is no quantity, and items can be tagged Low.
+// Unavailable (the server failed before any live list arrived): no list and no edits until a poll succeeds.
 (function () {
   'use strict';
   var D = window.DATA;
@@ -14,6 +15,7 @@
   };
 
   function live() { return !!D.groceriesLive; }
+  function unavailable() { return !live() && !!D.groceriesOffline; }
   function byId(id) { return D.groceries.filter(function (g) { return g.id === id; })[0]; }
   // The active tab may name a store that is gone (mock ids once the live list arrives): fall back to All.
   function tab() {
@@ -68,6 +70,7 @@
   }
 
   function listHTML() {
+    if (unavailable()) return '<div class="s-empty serif">Can\'t reach the grocery list.<br><i>Trying again…</i></div>';
     var items = open(), order = catOrder();
     items.forEach(function (g) { if (order.indexOf(g.cat) < 0) order.push(g.cat); });
     var groups = order.map(function (cat) { return { cat: cat, items: items.filter(function (g) { return g.cat === cat; }) }; }).filter(function (x) { return x.items.length; });
@@ -84,6 +87,7 @@
   }
 
   function suggestHTML() {
+    if (unavailable()) return '';
     var q = V.query.trim().toLowerCase();
     if (q) {
       var matches = D.catalog.filter(function (c) { return c[0].toLowerCase().indexOf(q) === 0; })
@@ -164,11 +168,19 @@
 
   function paintList() { tab(); var l = V.el.querySelector('.s-list'); var st = l.scrollTop; l.innerHTML = listHTML(); l.scrollTop = st; paintHead(); }
   function paintSuggest() { V.el.querySelector('.s-suggest').innerHTML = suggestHTML(); }
+  function paintInput() {
+    var input = V.el.querySelector('.s-input');
+    if (!input) return;
+    input.disabled = unavailable();
+    if (live()) input.maxLength = 120; // the server takes up to 200
+    else input.removeAttribute('maxlength');
+  }
   function paintHead() {
-    var all = D.groceries.filter(function (g) { return !g.done; }), t = tab();
-    V.el.querySelector('.s-count').innerHTML = '<span class="num">' + open().length + '</span> to get';
-    V.el.querySelector('.s-off').textContent = live() && D.groceriesOffline ? 'Couldn\'t reach Trello' : '';
-    V.el.querySelector('.s-stores').innerHTML = [['all', 'All']].concat(D.stores.map(function (s) { return [s.id, s.name]; })).map(function (s) {
+    var all = D.groceries.filter(function (g) { return !g.done; }), t = tab(), off = unavailable();
+    paintInput();
+    V.el.querySelector('.s-count').innerHTML = '<span class="num">' + (off ? '–' : open().length) + '</span> to get';
+    V.el.querySelector('.s-off').textContent = D.groceriesOffline ? 'Couldn\'t reach Trello' : '';
+    V.el.querySelector('.s-stores').innerHTML = off ? '' : [['all', 'All']].concat(D.stores.map(function (s) { return [s.id, s.name]; })).map(function (s) {
       var n = s[0] === 'all' ? all.length : all.filter(function (g) { return g.store === s[0]; }).length;
       return '<button class="' + (t === s[0] ? 'is-on' : '') + '" data-store="' + App.esc(s[0]) + '">' + App.esc(s[1]) + ' <span class="num">' + n + '</span></button>';
     }).join('');
@@ -200,23 +212,34 @@
   // ---- writes to the board. Serialised, so an undo can't overtake the tick it undoes. Each queued write
   // holds App.groceriesBusy, so a poll can't overwrite the optimistic state before it is sent.
   var queue = Promise.resolve();
+  // A throwing repaint/revert/toast must not jam the queue or skip the steps after it.
+  function guard(what, fn) {
+    try { fn(); } catch (e) { console.warn('HomeHQ groceries ' + what + ' failed:', e && e.message); }
+  }
   function write(path, body, revert) {
     App.groceriesBusy++;
-    var p = queue.then(function () {
-      App.groceriesBusy--;
-      var before = V.renders;
-      return App.groceriesWrite(path, body).then(function () {
-        if (V.renders === before) repaint(); // live.js rerenders the view itself when the reply changed the list
-        App.emit('data');
+    var step = queue.then(function () {
+      var before = V.renders, req;
+      try {
+        req = App.groceriesWrite(path, body);
+      } catch (e) {
+        req = Promise.reject(e);
+      } finally {
+        App.groceriesBusy--; // this write's queue hold; App.groceriesWrite holds its own while in flight
+      }
+      return req.then(function () {
+        // Accepted by the server: nothing below may revert it.
+        guard('repaint', function () { if (V.renders === before) repaint(); }); // live.js rerenders itself when the reply changed the list
+        guard('emit', function () { App.emit('data'); });
+      }, function (e) {
+        console.warn('HomeHQ groceries write failed:', path, e && e.message);
+        if (revert) guard('revert', revert);
+        guard('repaint', repaint);
+        guard('emit', function () { App.emit('data'); });
+        guard('toast', function () { App.toast('Couldn\'t update Trello', { icon: 'x', ms: 4000 }); });
       });
     });
-    queue = p.then(null, function (e) {
-      console.warn('HomeHQ groceries write failed:', path, e && e.message);
-      if (revert) revert();
-      repaint();
-      App.emit('data');
-      App.toast('Couldn\'t update Trello', { icon: 'x', ms: 4000 });
-    });
+    queue = step.then(null, function (e) { console.warn('HomeHQ groceries queue step failed:', e && e.message); });
   }
   function saving(g) {
     if (!g._tmp) return false;
@@ -229,6 +252,7 @@
   }
 
   function add(name) {
+    if (unavailable()) return;
     name = name.trim();
     var g = find(name, false), msg;
     if (g) {
@@ -253,8 +277,8 @@
         g.id = 'tmp' + (++tmpId); g._tmp = true; g.low = false; g.at = new Date().toISOString();
         g.store = t === 'all' ? '' : t;
         var body = { name: g.name };
-        if (g.cat !== 'Other') body.cat = g.cat;
-        if (g.store) body.store = g.store;
+        if (g.cat !== 'Other' && (D.catOrder.all || []).indexOf(g.cat) > -1) body.cat = g.cat;
+        if (g.store) body.store = storeName(g.store);
         write('groceries', body, function () { D.groceries = D.groceries.filter(function (x) { return x !== g; }); });
       } else {
         g.id = D._gid();
@@ -284,7 +308,7 @@
       if (!V.pending[id]) return;
       delete V.pending[id];
       var cur = byId(id);
-      if (!cur) return paintList(); // gone from the board meanwhile
+      if (!cur || unavailable()) return paintList(); // gone from the board meanwhile, or the list is unavailable
       cur.done = true;
       if (live()) {
         cur.at = new Date().toISOString();
@@ -298,6 +322,7 @@
     App.toast('<b>' + App.esc(name) + '</b> checked off', {
       icon: 'check',
       undo: function () {
+        if (unavailable()) return;
         var cur = byId(id) || g;
         var wasDone = cur.done;
         delete V.pending[id];
@@ -326,6 +351,7 @@
 
   function onClick(e) {
     var t;
+    if (unavailable()) return;
     if ((t = e.target.closest('[data-check]'))) {
       var g = byId(t.dataset.check);
       if (g && saving(g)) return;

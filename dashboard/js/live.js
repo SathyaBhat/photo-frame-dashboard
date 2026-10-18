@@ -100,11 +100,15 @@
       });
   };
 
-  // Groceries (the Trello board), via the frame server. Until the first success the mock list stays. Items
-  // name their store by name (not label id), so a store's id here is its name. The Shopping view is not
-  // yet aware of live data, so items get qty 1 if the server sent none.
+  // Groceries (the Trello board), via the frame server. A 503 before the first success means the server has
+  // no Trello configured, so the mock list stays. Any other failure before the first success sets
+  // D.groceriesOffline with D.groceriesLive still false: the views then hide the mock list and allow no edits
+  // until a poll succeeds. Items name their store by name (not label id), so a store's id here is its name.
+  // Items get qty 1 if the server sent none.
   var GROC_MS = 60 * 1000;
+  var GROC_WRITE_MS = 30 * 1000;
   var grocJSON = '';
+  var grocGen = 0; // bumped when a write starts and ends: a poll answered across a write is discarded
   D.groceriesLive = false;
   D.groceriesOffline = false;
   App.groceriesBusy = 0; // writes in flight: don't let a poll overwrite the optimistic state
@@ -138,28 +142,49 @@
 
   function loadGroceries() {
     if (App.groceriesBusy) return Promise.resolve();
-    return getJSON('groceries').then(applyGroceries).catch(function (e) {
+    var gen = grocGen;
+    return getJSON('groceries').then(function (res) {
+      if (gen === grocGen) applyGroceries(res);
+    }).catch(function (e) {
+      if (gen !== grocGen) return; // a write settled meanwhile; its reply is the fresher word
       // 503 before the first success: server has no Trello configured, stay on mock
-      if (e.message === 'HTTP 503' && !D.groceriesLive) return;
-      console.warn('HomeHQ live groceries failed, keeping current list:', e.message);
-      if (D.groceriesLive) setGroceriesOffline(true);
+      if (e.message === 'HTTP 503' && !D.groceriesLive) { setGroceriesOffline(false); return; }
+      console.warn('HomeHQ live groceries failed:', e.message);
+      setGroceriesOffline(true);
     });
   }
 
-  // Write to the board. Rejects if the server or Trello refused. The reply carries the fresh list.
+  function writeSignal() {
+    return typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(GROC_WRITE_MS) : undefined;
+  }
+
+  // Write to the board. Rejects if the server or Trello refused, or after 30 s without an answer (which also
+  // flags the list offline). The reply carries the fresh list.
   App.groceriesWrite = function (path, body) {
+    var held = true;
+    function release() { if (held) { held = false; App.groceriesBusy--; grocGen++; } }
     App.groceriesBusy++;
-    return fetch(API + path, { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      }).then(function (res) {
-        App.groceriesBusy--;
-        applyGroceries(res);
-      }, function (e) {
-        App.groceriesBusy--;
-        throw e;
-      });
+    grocGen++;
+    var req;
+    try {
+      req = fetch(API + path, { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}), signal: writeSignal() });
+    } catch (e) {
+      req = Promise.reject(e);
+    }
+    return req.then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (res) {
+      release();
+      // The server accepted the write: a failure to show the reply must not look like a failed write.
+      try { applyGroceries(res); } catch (e) { console.warn('HomeHQ groceries reply not applied:', e && e.message); }
+    }, function (e) {
+      release();
+      if (e && e.name === 'TimeoutError') {
+        try { setGroceriesOffline(true); } catch (x) { console.warn('HomeHQ groceries offline repaint failed:', x && x.message); }
+      }
+      throw e;
+    });
   };
 
   // Deploy detection: version.json is rewritten on every build. When it differs from the id this

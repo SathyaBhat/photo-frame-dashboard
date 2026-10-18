@@ -132,8 +132,14 @@
   }
 
   function shopping() {
+    if (!D.groceriesLive && D.groceriesOffline) {
+      return '<div class="label">Shopping</div>' +
+        '<div class="h-stat"><span class="num">–</span><small>items to get</small></div>' +
+        '<p class="h-shop-off">Can\'t reach the grocery list. Trying again…</p>';
+    }
     var open = D.groceries.filter(function (g) { return !g.done; });
-    var recent = open.slice(-3).reverse();
+    // live cards arrive newest first; the mock list appends new items at the end
+    var recent = D.groceriesLive ? open.slice(0, 3) : open.slice(-3).reverse();
     return '<div class="label">Shopping</div>' +
       '<div class="h-stat"><span class="num">' + open.length + '</span><small>items to get</small></div>' +
       '<ul class="h-recent">' + recent.map(function (g) {
