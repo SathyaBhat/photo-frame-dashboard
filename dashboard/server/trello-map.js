@@ -7,6 +7,12 @@ var STOCKED_CAP = 60;
 var STORE_PREFIX = 'Store: ';
 export var USUAL = 'Usual';
 
+// The usual label may be named Usual or Usuals, any case, with stray spaces around it.
+export function isUsualName(name) {
+  var n = String(name || '').trim().toLowerCase();
+  return n === 'usual' || n === 'usuals';
+}
+
 // "🛒 To Buy" -> "to buy": drop leading non-letters (emoji, spaces), ignore case.
 export function listKey(name) {
   return String(name || '').replace(/^[^A-Za-z]+/, '').trim().toLowerCase();
@@ -36,7 +42,7 @@ function toItem(card, labelsById, done) {
     var name = labelsById[id];
     if (!name) return;
     if (name === 'Low') low = true;
-    else if (name === USUAL) usual = true;
+    else if (isUsualName(name)) usual = true;
     else if (name.indexOf(STORE_PREFIX) === 0) store = name.slice(STORE_PREFIX.length).trim();
     else if (CATEGORIES.indexOf(name) >= 0 && cat === 'Other') cat = name;
   });

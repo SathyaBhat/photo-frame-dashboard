@@ -1,5 +1,5 @@
 // Reads the grocery board through a short cache and writes card changes back to Trello.
-import { buildGroceries, resolveIds, CATEGORIES, USUAL } from './trello-map.js';
+import { buildGroceries, resolveIds, isUsualName, CATEGORIES, USUAL } from './trello-map.js';
 import { BadRequest } from './ha-map.js';
 
 export { BadRequest };
@@ -138,6 +138,27 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
     });
   }
 
+  // Usual may be named Usual or Usuals (any case): any alias on the card counts, and off removes them all.
+  function setUsualLabel(id, on) {
+    return write(id, async function (raw, card) {
+      var aliases = (raw.labels || []).filter(function (l) { return isUsualName(l.name); });
+      var onCard = aliases.filter(function (l) { return has(card, l.id); });
+      if (on) {
+        if (onCard.length) return;
+        var pick = aliases.filter(function (l) { return l.name === USUAL; })[0] || aliases[0];
+        await api('POST', '/cards/' + id + '/idLabels', { value: pick ? pick.id : await labelId(raw, USUAL) });
+        return;
+      }
+      for (var i = 0; i < onCard.length; i++) {
+        try {
+          await api('DELETE', '/cards/' + id + '/idLabels/' + onCard[i].id, {});
+        } catch (e) {
+          if (!(e instanceof NotFound)) throw e;
+        }
+      }
+    });
+  }
+
   async function setOnly(id, test, name) {
     return write(id, async function (raw, card) {
       var existing = name && resolveIds(raw).labels[name];
@@ -171,7 +192,7 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
     setLow: function (id, low) { return toggle(id, 'Low', low); },
 
     // Usual is independent of the list a card is in and of Low.
-    setUsual: function (id, usual) { return toggle(id, USUAL, usual); },
+    setUsual: function (id, usual) { return setUsualLabel(id, usual); },
 
     setCategory: async function (id, cat) {
       checkCategory(cat);

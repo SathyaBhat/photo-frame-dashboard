@@ -24,7 +24,10 @@ Never create other lists.
 
 LABELS
 Use these exact names and never create any other label. Names must match exactly, including case
-and spacing: "Usual" with a capital U and no trailing space, not "usual" or "Usual ".
+and spacing: "Usual" with a capital U and no trailing space, not "usual" or "Usual ". The one
+exception is the usual label: the canonical name is "Usual", but "Usuals" (any case) is also
+recognised. When you apply it, use the label the board already has, whichever of the two it is; only
+create "Usual" when the board has neither.
 - Category (every card gets exactly one): Fruits & Veggies, Bakery, Dairy & Refrigerated,
   Meat & Seafood, Pantry, Snacks, Spices & Seasoning, Household.
   Drinks, cordial and soda mixes go in Pantry.

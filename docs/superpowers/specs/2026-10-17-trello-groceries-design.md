@@ -52,7 +52,10 @@ this work, written after the frame side works.
 
 - **Telling labels apart:** the eight category names, `Low` and `Usual` are fixed and matched by name.
   Store labels are the ones named `Store: <name>` (the tab shows `<name>`). Any other label is
-  ignored, so a stray label never becomes a tab. Hermes must use these exact names.
+  ignored, so a stray label never becomes a tab. Hermes must use these exact names. The canonical
+  usual label is `Usual`, but `Usuals` (any case, surrounding spaces ignored) is also recognised; to
+  apply it Hermes uses the board's existing one, and creates `Usual` only when there is neither.
+  Turning a usual off removes every such label from the card.
 - **Finding lists and labels:** by name (`To Buy`, `Stocked`) on startup and on each refresh. If
   `To Buy` is missing the route answers 503 with a clear log line; a missing label is created on
   first use.

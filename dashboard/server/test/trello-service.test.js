@@ -360,3 +360,49 @@ test('a failed multi-step write still invalidates the cache', async function () 
   await t.get();
   assert.equal(f.reads().length, 2);
 });
+
+test('setUsual(true) is a no-op when the card carries a Usuals label', async function () {
+  var f = fake();
+  f.board.labels.push({ id: 'lab-us', name: ' USUALS ' });
+  f.board.cards[1].idLabels = ['lab-us'];
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.setUsual('c2', true);
+  assert.equal(f.writes().length, 0);
+});
+
+test('setUsual(true) attaches an existing Usuals label and creates nothing', async function () {
+  var f = fake();
+  f.board.labels.push({ id: 'lab-us', name: 'Usuals' });
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.setUsual('c2', true);
+  assert.deepEqual(f.writes(), [{ method: 'POST', path: '/cards/c2/idLabels', query: { value: 'lab-us' } }]);
+});
+
+test('setUsual(true) prefers the exact Usual over another alias', async function () {
+  var f = fake();
+  f.board.labels.push({ id: 'lab-us', name: 'Usuals' }, { id: 'lab-u', name: 'Usual' });
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.setUsual('c2', true);
+  assert.deepEqual(f.writes(), [{ method: 'POST', path: '/cards/c2/idLabels', query: { value: 'lab-u' } }]);
+});
+
+test('setUsual(false) removes every alias label the card carries', async function () {
+  var f = fake();
+  f.board.labels.push({ id: 'lab-us', name: 'Usuals' }, { id: 'lab-u', name: 'usual' });
+  f.board.cards[0].idLabels.push('lab-us', 'lab-u');
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.setUsual('c1', false);
+  assert.deepEqual(f.writes(), [
+    { method: 'DELETE', path: '/cards/c1/idLabels/lab-us', query: {} },
+    { method: 'DELETE', path: '/cards/c1/idLabels/lab-u', query: {} }
+  ]);
+});
+
+test('setUsual(false) tolerates a 404 on a DELETE', async function () {
+  var f = fake({ fail: function (m) { return m === 'DELETE'; }, error: new NotFound('trello -> HTTP 404') });
+  f.board.labels.push({ id: 'lab-us', name: 'Usuals' });
+  f.board.cards[0].idLabels.push('lab-us');
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  var res = await t.setUsual('c1', false);
+  assert.ok(res.data);
+});

@@ -187,3 +187,25 @@ test('resolveIds leaves Stocked null when missing', function () {
   b.lists = b.lists.filter(function (l) { return !/stocked/i.test(l.name); });
   assert.equal(resolveIds(b).stocked, null);
 });
+
+test('Usuals, usual and " USUALS " all count as the usual label and are never a category or store', function () {
+  ['Usuals', 'usual', ' USUALS ', 'Usual'].forEach(function (name, n) {
+    var b = board();
+    var id = 'c0000000000000000000009' + n;
+    b.labels.push({ id: id, name: name, color: null });
+    b.cards.forEach(function (c) { if (c.name === 'Batteries AA') c.idLabels = [id]; });
+    var i = byName(build(b), 'Batteries AA');
+    assert.equal(i.usual, true, name);
+    assert.equal(i.cat, 'Other', name);
+    assert.equal(i.store, '', name);
+  });
+});
+
+test('the Stocked cap keeps a Usuals-labelled Stocked card outside the 60 newest', function () {
+  var b = board();
+  b.labels.push({ id: 'c00000000000000000000077', name: 'Usuals', color: null });
+  bulk(b, 3, ['c00000000000000000000077'], 'u', 0);
+  bulk(b, 70, [], 'f', 100);
+  var done = build(b).items.filter(function (i) { return i.done; });
+  for (var k = 0; k < 3; k++) assert.ok(done.some(function (i) { return i.name === 'u ' + k && i.usual; }), 'u ' + k);
+});
