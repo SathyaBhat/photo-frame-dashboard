@@ -79,7 +79,7 @@ export function planMigration(board) {
     [running, need].forEach(function (l) { if (l) archives.push({ op: 'archiveList', id: l.id, name: l.name }); });
   }
   var steps = wanted.map(function (n) { return { op: 'createLabel', name: n }; })
-    .concat(moves, adds, archives);
+    .concat(adds, moves, archives);
   return { steps: steps, warnings: warnings };
 }
 
@@ -122,7 +122,7 @@ async function main() {
   var board = await api('GET', '/boards/' + encodeURIComponent(env.TRELLO_BOARD), { lists: 'open', cards: 'open', labels: 'all' });
   var plan = planMigration(board);
 
-  var titles = { createLabel: 'Create labels', moveCard: 'Move cards', addLabel: 'Add labels', archiveList: 'Archive lists' };
+  var titles = { createLabel: 'Create labels', addLabel: 'Add labels', moveCard: 'Move cards', archiveList: 'Archive lists' };
   Object.keys(titles).forEach(function (op) {
     var group = plan.steps.filter(function (s) { return s.op === op; });
     if (!group.length) return;

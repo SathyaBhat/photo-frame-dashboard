@@ -91,3 +91,38 @@ test('an already-migrated board plans nothing', function () {
   b.cards.forEach(function (c) { if (c.name === 'Rice 5kg') c.idLabels.push('b20000000000000000000011'); });
   assert.deepEqual(planMigration(b).steps, []);
 });
+
+// Resume states after a partial --apply: adds come before moves, archives last.
+function ops(plan) { return plan.steps.map(function (s) { return s.op; }); }
+
+test('plan order is create labels, adds, moves, archives', function () {
+  var order = { createLabel: 0, addLabel: 1, moveCard: 2, archiveList: 3 };
+  var o = ops(planMigration(fixture)).map(function (x) { return order[x]; });
+  assert.deepEqual(o, o.slice().sort());
+});
+
+test('labels added, moves pending: only the moves and archives remain', function () {
+  var b = clone(fixture);
+  var low = 'b20000000000000000000014';
+  b.cards = b.cards.filter(function (c) { return c.idList !== 'a10000000000000000000004'; });
+  b.lists = b.lists.filter(function (l) { return l.id !== 'a10000000000000000000004'; });
+  b.cards.forEach(function (c) {
+    if (c.idList === 'a10000000000000000000003') c.idLabels = (c.idLabels || []).concat([low]);
+    if (c.name === 'Rice 5kg') c.idLabels.push('b20000000000000000000011');
+  });
+  var p = planMigration(b);
+  assert.deepEqual(ops(p), ['moveCard', 'moveCard', 'archiveList']);
+  assert.deepEqual(p.steps.filter(function (s) { return s.op === 'moveCard'; }).map(function (s) { return s.id; }).sort(),
+    ['c30000000000000000000033', 'c30000000000000000000034']);
+});
+
+test('adds and moves done, archive pending: only the archive remains', function () {
+  var b = clone(fixture);
+  b.cards.forEach(function (c) {
+    if (c.idList === 'a10000000000000000000003' || c.idList === 'a10000000000000000000004') c.idList = 'a10000000000000000000001';
+    if (c.name === 'Rice 5kg') c.idLabels.push('b20000000000000000000011');
+  });
+  var p = planMigration(b);
+  assert.deepEqual(p.steps.map(function (s) { return s.op + ':' + s.id; }).sort(),
+    ['archiveList:a10000000000000000000003', 'archiveList:a10000000000000000000004']);
+});
