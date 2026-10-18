@@ -1,7 +1,7 @@
 // /api/groceries handler, kept apart from index.js so it can be tested without starting the server.
 import { BadRequest, NotFound } from './trello-service.js';
 
-var FIELDS = { done: 'boolean', low: 'boolean', cat: 'string', store: 'string' };
+var FIELDS = { done: 'boolean', low: 'boolean', usual: 'boolean', cat: 'string', store: 'string' };
 
 function reply(send, res, r) {
   return send(res, 200, { groceries: r.data, stale: r.stale, updated: new Date(r.at).toISOString() });
@@ -9,10 +9,11 @@ function reply(send, res, r) {
 
 async function edit(trello, id, body) {
   var keys = Object.keys(body || {});
-  if (keys.length !== 1 || !FIELDS[keys[0]] || typeof body[keys[0]] !== FIELDS[keys[0]]) throw new BadRequest('body needs exactly one of done, low (boolean), cat, store (string)');
+  if (keys.length !== 1 || !FIELDS[keys[0]] || typeof body[keys[0]] !== FIELDS[keys[0]]) throw new BadRequest('body needs exactly one of done, low, usual (boolean), cat, store (string)');
   var k = keys[0], v = body[k];
   if (k === 'done') return trello.tick(id, v);
   if (k === 'low') return trello.setLow(id, v);
+  if (k === 'usual') return trello.setUsual(id, v);
   if (k === 'cat') return trello.setCategory(id, v);
   return trello.setStore(id, v); // an empty string removes the store label
 }

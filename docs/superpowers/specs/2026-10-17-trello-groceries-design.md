@@ -27,12 +27,15 @@ this work, written after the frame side works.
     Snacks, Spices & Seasoning, Household);
   - zero or one **store** label (for example "Tong Li"), which drives the store tabs;
   - optionally the **Low** label, which replaces the old Running Low list. The frame shows it as a
-    small tag on the row.
+    small tag on the row;
+  - optionally the **Usual** label: something the household buys regularly. Those cards, in To Buy
+    or Stocked, are the Shopping view's usuals tiles.
 - **Frame actions write back to Trello:**
   - tick off: move the card from To Buy to Stocked;
   - add: create a card in To Buy with a category label (the frame's existing catalog guess, or
     "Other" = no category label) and the active store tab's label;
-  - tag: add or remove the Low label, change category or store label.
+  - tag: add or remove the Low label, change category or store label (the API can also add or remove
+    Usual; the frame's tiles only read it).
   - Un-tick (the "Got it" drawer's *Add back*) moves the card back to To Buy.
 - **Quantity:** Trello has no quantity, so it stays in the card name where the owner already puts
   it ("Mandarins 2kg", "Dark Choc Block (x2)"). The frame's ± quantity buttons go away for Trello
@@ -47,7 +50,7 @@ this work, written after the frame side works.
 
 ## Details settled during review (the writer's calls)
 
-- **Telling labels apart:** the eight category names and `Low` are fixed and matched by name.
+- **Telling labels apart:** the eight category names, `Low` and `Usual` are fixed and matched by name.
   Store labels are the ones named `Store: <name>` (the tab shows `<name>`). Any other label is
   ignored, so a stray label never becomes a tab. Hermes must use these exact names.
 - **Finding lists and labels:** by name (`To Buy`, `Stocked`) on startup and on each refresh. If
@@ -56,9 +59,14 @@ this work, written after the frame side works.
 - **Store tabs:** `All` stays, plus one tab per store label in use. A card without a store label
   shows only on `All`. Adding from `All` creates a card with no store label; adding from a store
   tab gives it that store's label. `catOrder` is the same for every tab.
-- **Stocked:** the server returns the 60 most recently active Stocked cards (Trello's
-  `dateLastActivity`), newest first. The "Got it" drawer shows the ones moved in the last 24 hours
-  and the usuals tiles use the full 60. Everything in the drawer can be added back.
+- **Stocked:** the server returns every Stocked card labelled `Usual` plus the most recently active
+  others (Trello's `dateLastActivity`) up to 60 in all, newest first; a usual is never dropped by the
+  cap. The "Got it" drawer shows the ones moved in the last 24 hours. Everything in the drawer can be
+  added back.
+- **Usuals:** the tiles are the cards labelled `Usual`, in To Buy or Stocked, sorted by name. A tile
+  for a To Buy card shows "On list"; tapping a Stocked one moves that card back to To Buy with its
+  labels (no new card). With no usuals the panel says how to add one. `Usual` is independent of
+  the list a card is in and of `Low`; the owner or Hermes sets it in Trello.
 - **Fields Trello can't supply:** `qty` is dropped for Trello cards (the quantity is in the name).
   The mock list, with its quantity buttons, is only used when the server answers 503 at startup
   because Trello is not configured.
@@ -96,7 +104,7 @@ Run once, with the owner shown the plan first (dry run output) and approving bef
 
 - `trello-map.js`, in the style of `weather-map.js`: pure functions from Trello's JSON (lists,
   labels, cards) to the frame's item shape
-  `{ id, name, cat, store, low, note, done }`, plus the reverse for writes. Testable without the
+  `{ id, name, cat, store, low, usual, note, done }`, plus the reverse for writes. Testable without the
   network.
 - `trello-service.js`: the cached reader (same stale-copy behaviour as `calendar-service.js`) and
   the write calls. Credentials are query parameters on Trello's API, so errors are rethrown
@@ -104,8 +112,8 @@ Run once, with the owner shown the plan first (dry run output) and approving bef
 - Routes, following the Home Assistant command route's pattern:
   - `GET /api/groceries` → `{ data: { items, stores, categories }, stale, at }`, with items from
     To Buy and a bounded number from Stocked (for the drawer and the usuals).
-  - `POST /api/groceries` add; `POST /api/groceries/:id` with `{ done }`, `{ low }`, `{ cat }` or
-    `{ store }`. Validate input; ids are checked against the board's own cards.
+  - `POST /api/groceries` add; `POST /api/groceries/:id` with exactly one of `{ done }`, `{ low }`,
+    `{ usual }`, `{ cat }` or `{ store }`. Validate input; ids are checked against the board's own cards.
 - `docker-compose.yml`: `TRELLO_API_KEY`, `TRELLO_TOKEN`, `TRELLO_BOARD`, all `:-` optional.
 - Tests with fixture JSON: mapping, legacy description cleanup, unlabelled cards, and the 503 and
   stale paths.
@@ -118,7 +126,7 @@ Run once, with the owner shown the plan first (dry run output) and approving bef
 - `js/views/shopping.js`: keep the layout and the granular DOM updates. Store tabs come from
   the store labels; categories from the category labels; a **Low** tag on rows and a long-press or
   second tap target to toggle it that is at least about 56 px. Check, add and tag call the new
-  routes. The usuals tiles come from Stocked, because that is what the household already buys.
+  routes. The usuals tiles are the cards labelled `Usual`.
 - `js/views/home.js`: the Shopping tile already counts open items; it should count To Buy.
 - Constraints as for every view: no 4- or 8-digit hex colours, touch-sized targets, no heavy
   animation, Chromium 106.

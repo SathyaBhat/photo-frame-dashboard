@@ -225,6 +225,72 @@ test('setLow(id,true) adds the label', async function () {
   assert.deepEqual(f.writes(), [{ method: 'POST', path: '/cards/c2/idLabels', query: { value: 'lab-low' } }]);
 });
 
+test('setUsual(id,true) creates the missing Usual label once and adds it', async function () {
+  var f = fake();
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  var res = await t.setUsual('c2', true);
+  assert.deepEqual(f.writes(), [
+    { method: 'POST', path: '/labels', query: { name: 'Usual', color: 'null', idBoard: 'bfull' } },
+    { method: 'POST', path: '/cards/c2/idLabels', query: { value: 'new-Usual' } }
+  ]);
+  assert.equal(f.reads().length, 2);
+  assert.ok(res.data && res.stale === false);
+});
+
+test('setUsual(id,true) reuses an existing Usual label; when already set it is a no-op', async function () {
+  var f = fake();
+  f.board.labels.push({ id: 'lab-usual', name: 'Usual' });
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.setUsual('c2', true);
+  assert.deepEqual(f.writes(), [{ method: 'POST', path: '/cards/c2/idLabels', query: { value: 'lab-usual' } }]);
+  f.calls = [];
+  f.board.cards[1].idLabels = ['lab-usual'];
+  t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.setUsual('c2', true);
+  assert.equal(f.writes().length, 0);
+});
+
+test('setUsual(id,false) removes the label and leaves Low and the list alone; when unset it is a no-op', async function () {
+  var f = fake();
+  f.board.labels.push({ id: 'lab-usual', name: 'Usual' });
+  f.board.cards[0].idLabels.push('lab-usual');
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.setUsual('c1', false);
+  assert.deepEqual(f.writes(), [{ method: 'DELETE', path: '/cards/c1/idLabels/lab-usual', query: {} }]);
+  f.calls = [];
+  await t.setUsual('c2', false);
+  assert.equal(f.writes().length, 0);
+});
+
+test('setUsual on a card Trello no longer has (404) resolves with a fresh read', async function () {
+  var f = fake({ fail: function (m, p) { return m === 'POST' && /idLabels/.test(p); }, error: new NotFound('trello -> HTTP 404') });
+  f.board.labels.push({ id: 'lab-usual', name: 'Usual' });
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.get();
+  var res = await t.setUsual('c2', true);
+  assert.ok(res.data);
+  assert.equal(f.reads().length, 2);
+});
+
+test('two concurrent setUsual calls create the Usual label once', async function () {
+  var f = fake();
+  var slow = function (m, p, q) { return new Promise(function (r) { setTimeout(r, 10); }).then(function () { return f(m, p, q); }); };
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: slow, clock: clock(T0) });
+  await t.get();
+  await Promise.all([t.setUsual('c1', true), t.setUsual('c2', true)]);
+  assert.equal(f.writes().filter(function (c) { return c.path === '/labels'; }).length, 1);
+  assert.equal(f.writes().filter(function (c) { return /idLabels$/.test(c.path); }).length, 2);
+});
+
+test('a ticked card keeps its Usual label', async function () {
+  var f = fake();
+  f.board.labels.push({ id: 'lab-usual', name: 'Usual' });
+  f.board.cards[0].idLabels.push('lab-usual');
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });
+  await t.tick('c1', true);
+  assert.ok(!f.writes().some(function (c) { return /lab-usual/.test(c.path); }));
+});
+
 test('setCategory swaps the category label', async function () {
   var f = fake();
   var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) });

@@ -9,7 +9,7 @@ var RESULT = { data: { items: [{ id: ID }], stores: ['Aldi'], categories: ['Dair
 function fakeTrello(over) {
   var calls = [];
   var t = { calls: calls };
-  ['get', 'tick', 'setLow', 'setCategory', 'setStore', 'add'].forEach(function (k) {
+  ['get', 'tick', 'setLow', 'setUsual', 'setCategory', 'setStore', 'add'].forEach(function (k) {
     t[k] = async function () { calls.push([k].concat([].slice.call(arguments))); return RESULT; };
   });
   return Object.assign(t, over || {});
@@ -69,7 +69,7 @@ test('id must be 24 hex characters', async function () {
   assert.equal(t.calls.length, 0);
 });
 
-test('exactly one of done, low, cat, store', async function () {
+test('exactly one of done, low, usual, cat, store', async function () {
   var t = fakeTrello();
   var p = '/api/groceries/' + ID;
   assert.equal((await call(t, 'POST', p, { done: true, low: true })).status, 400);
@@ -78,6 +78,11 @@ test('exactly one of done, low, cat, store', async function () {
   assert.equal((await call(t, 'POST', p, { low: 1 })).status, 400);
   assert.equal((await call(t, 'POST', p, { cat: true })).status, 400);
   assert.equal((await call(t, 'POST', p, { store: null })).status, 400);
+  assert.equal((await call(t, 'POST', p, { usual: 'true' })).status, 400);
+  assert.equal((await call(t, 'POST', p, { usual: 1 })).status, 400);
+  assert.equal((await call(t, 'POST', p, { usual: true, done: false })).status, 400);
+  var bad = await call(t, 'POST', p, { nope: true });
+  assert.match(bad.body.error, /usual/);
   assert.equal(t.calls.length, 0);
 });
 
@@ -88,7 +93,9 @@ test('each field dispatches to its write', async function () {
   await call(t, 'POST', p, { low: false });
   await call(t, 'POST', p, { cat: 'Dairy' });
   await call(t, 'POST', p, { store: '' });
-  assert.deepEqual(t.calls, [['tick', ID, true], ['setLow', ID, false], ['setCategory', ID, 'Dairy'], ['setStore', ID, '']]);
+  await call(t, 'POST', p, { usual: true });
+  await call(t, 'POST', p, { usual: false });
+  assert.deepEqual(t.calls, [['tick', ID, true], ['setLow', ID, false], ['setCategory', ID, 'Dairy'], ['setStore', ID, ''], ['setUsual', ID, true], ['setUsual', ID, false]]);
 });
 
 test('other methods are 405', async function () {

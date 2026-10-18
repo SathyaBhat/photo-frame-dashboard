@@ -5,6 +5,7 @@ export var CATEGORIES = ['Fruits & Veggies', 'Bakery', 'Dairy & Refrigerated', '
 
 var STOCKED_CAP = 60;
 var STORE_PREFIX = 'Store: ';
+export var USUAL = 'Usual';
 
 // "🛒 To Buy" -> "to buy": drop leading non-letters (emoji, spaces), ignore case.
 export function listKey(name) {
@@ -30,15 +31,22 @@ function noteFrom(desc) {
 }
 
 function toItem(card, labelsById, done) {
-  var cat = 'Other', store = '', low = false;
+  var cat = 'Other', store = '', low = false, usual = false;
   (card.idLabels || []).forEach(function (id) {
     var name = labelsById[id];
     if (!name) return;
     if (name === 'Low') low = true;
+    else if (name === USUAL) usual = true;
     else if (name.indexOf(STORE_PREFIX) === 0) store = name.slice(STORE_PREFIX.length).trim();
     else if (CATEGORIES.indexOf(name) >= 0 && cat === 'Other') cat = name;
   });
-  return { id: card.id, name: card.name, cat: cat, store: store, low: low, note: noteFrom(card.desc), done: done, at: card.dateLastActivity };
+  return { id: card.id, name: card.name, cat: cat, store: store, low: low, usual: usual, note: noteFrom(card.desc), done: done, at: card.dateLastActivity };
+}
+
+// Newest first, at most STOCKED_CAP, except that every usual stays (usuals count toward the cap first).
+function capStocked(sorted) {
+  var room = STOCKED_CAP - sorted.filter(function (i) { return i.usual; }).length;
+  return sorted.filter(function (i) { return i.usual || room-- > 0; });
 }
 
 export function buildGroceries(input) {
@@ -56,10 +64,9 @@ export function buildGroceries(input) {
   var open = (board.cards || []).filter(function (c) { return !c.closed; });
   var toBuy = open.filter(function (c) { return c.idList === ids.toBuy; })
     .map(function (c) { return toItem(c, labelsById, false); });
-  var stocked = ids.stocked ? open.filter(function (c) { return c.idList === ids.stocked; })
+  var stocked = ids.stocked ? capStocked(open.filter(function (c) { return c.idList === ids.stocked; })
     .map(function (c) { return toItem(c, labelsById, true); })
-    .sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; })
-    .slice(0, STOCKED_CAP) : [];
+    .sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; })) : [];
 
   return { items: toBuy.concat(stocked), stores: stores, categories: CATEGORIES.slice() };
 }

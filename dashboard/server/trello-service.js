@@ -1,5 +1,5 @@
 // Reads the grocery board through a short cache and writes card changes back to Trello.
-import { buildGroceries, resolveIds, CATEGORIES } from './trello-map.js';
+import { buildGroceries, resolveIds, CATEGORIES, USUAL } from './trello-map.js';
 import { BadRequest } from './ha-map.js';
 
 export { BadRequest };
@@ -125,6 +125,19 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
   function isCategory(n) { return CATEGORIES.indexOf(n) >= 0; }
   function isStore(n) { return n.indexOf(STORE_PREFIX) === 0; }
 
+  // Add or remove one flag label (Low, Usual); a no-op when the card already matches.
+  function toggle(id, name, on) {
+    return write(id, async function (raw, card) {
+      var existing = resolveIds(raw).labels[name];
+      if (on) {
+        if (existing && has(card, existing)) return;
+        await api('POST', '/cards/' + id + '/idLabels', { value: await labelId(raw, name) });
+      } else if (existing && has(card, existing)) {
+        await api('DELETE', '/cards/' + id + '/idLabels/' + existing, {});
+      }
+    });
+  }
+
   async function setOnly(id, test, name) {
     return write(id, async function (raw, card) {
       var existing = name && resolveIds(raw).labels[name];
@@ -155,17 +168,10 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
       });
     },
 
-    setLow: function (id, low) {
-      return write(id, async function (raw, card) {
-        var existing = resolveIds(raw).labels['Low'];
-        if (low) {
-          if (existing && has(card, existing)) return;
-          await api('POST', '/cards/' + id + '/idLabels', { value: await labelId(raw, 'Low') });
-        } else if (existing && has(card, existing)) {
-          await api('DELETE', '/cards/' + id + '/idLabels/' + existing, {});
-        }
-      });
-    },
+    setLow: function (id, low) { return toggle(id, 'Low', low); },
+
+    // Usual is independent of the list a card is in and of Low.
+    setUsual: function (id, usual) { return toggle(id, USUAL, usual); },
 
     setCategory: async function (id, cat) {
       checkCategory(cat);

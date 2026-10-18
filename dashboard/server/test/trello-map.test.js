@@ -45,6 +45,60 @@ test('Stocked is newest first and capped at 60', function () {
   for (var j = 1; j < big.length; j++) assert.ok(big[j - 1].at >= big[j].at);
 });
 
+var USUAL = 'c00000000000000000000001';
+function withUsual(b) { b.labels.push({ id: USUAL, name: 'Usual', color: null }); return b; }
+function stockedId(b) { return b.lists.filter(function (l) { return /stocked/i.test(l.name); })[0].id; }
+function bulk(b, n, labels, prefix, minuteBase) {
+  for (var k = 0; k < n; k++) {
+    b.cards.push({ id: (prefix + k).padStart(24, '0'), name: prefix + ' ' + k, desc: '', idList: stockedId(b), idLabels: labels.slice(), closed: false, dateLastActivity: new Date(Date.UTC(2026, 0, 1, 0, minuteBase + k)).toISOString() });
+  }
+}
+
+test('Usual label sets usual on To Buy and Stocked cards and is not a category', function () {
+  var b = withUsual(board());
+  b.cards.forEach(function (c) { if (c.name === 'Bananas' || c.name === 'Eggs') c.idLabels.push(USUAL); });
+  var r = build(b);
+  assert.equal(byName(r, 'Bananas').usual, true);
+  assert.equal(byName(r, 'Bananas').cat, 'Fruits & Veggies');
+  assert.equal(byName(r, 'Eggs').usual, true);
+  assert.equal(byName(r, 'Eggs').done, true);
+  assert.equal(byName(r, 'Bread').usual, false);
+  assert.equal(byName(r, 'Milk 2L').usual, false);
+});
+
+test('a card with only the Usual label is Other', function () {
+  var b = withUsual(board());
+  b.cards.forEach(function (c) { if (c.name === 'Batteries AA') c.idLabels = [USUAL]; });
+  var i = byName(build(b), 'Batteries AA');
+  assert.equal(i.cat, 'Other');
+  assert.equal(i.usual, true);
+  assert.equal(i.low, false);
+  assert.equal(i.store, '');
+});
+
+test('the Stocked cap never drops a Usual-labelled Stocked card', function () {
+  var b = withUsual(board());
+  bulk(b, 5, [USUAL], 'u', 0);    // oldest of all
+  bulk(b, 70, [], 'f', 100);      // newer, unlabelled
+  var done = build(b).items.filter(function (i) { return i.done; });
+  assert.equal(done.length, 60);
+  for (var k = 0; k < 5; k++) assert.ok(done.some(function (i) { return i.name === 'u ' + k; }), 'u ' + k);
+  // the others fill the rest, newest first: Bread, Eggs, Cumin are the newest, then f 69 down
+  var others = done.filter(function (i) { return !i.usual; });
+  assert.equal(others.length, 55);
+  assert.deepEqual(others.slice(0, 4).map(function (i) { return i.name; }), ['Bread', 'Eggs', 'Cumin', 'f 69']);
+  assert.ok(!done.some(function (i) { return i.name === 'f 17'; }));
+  for (var j = 1; j < done.length; j++) assert.ok(done[j - 1].at >= done[j].at, 'newest first');
+});
+
+test('more than 60 Usual Stocked cards are all kept, with no others', function () {
+  var b = withUsual(board());
+  bulk(b, 65, [USUAL], 'u', 0);
+  var done = build(b).items.filter(function (i) { return i.done; });
+  assert.equal(done.length, 65);
+  assert.ok(done.every(function (i) { return i.usual; }));
+});
+
 test('Low label sets low and is not a category', function () {
   var i = byName(build(), 'Milk 2L');
   assert.equal(i.low, true);
