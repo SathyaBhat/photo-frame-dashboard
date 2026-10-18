@@ -2,6 +2,8 @@
 .shop { height: 100%; display: grid; grid-template-columns: 1fr 440px; grid-template-rows: auto 1fr; gap: 16px 24px; }
 .s-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 24px; }
 .s-head h1 { font-size: 64px; line-height: .95; }
+.s-off { font-size: 16px; font-weight: 800; color: #B45F00; min-height: 0; }
+.s-off:empty { display: none; }
 .s-count { margin-right: auto; font-size: 22px; color: var(--mute); padding-top: 22px; }
 .s-count .num { font-size: 34px; color: var(--ink); }
 
@@ -24,6 +26,12 @@
 .s-name b { font-size: 23px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; }
 .s-name small { font-size: 16px; color: var(--mute); }
 .s-store { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; background: var(--ink); color: var(--paper); }
+.s-low { flex: none; font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; background: var(--amber); color: var(--ink); }
+.s-lowbtn { flex: none; min-width: 112px; height: 60px; margin-left: 4px; padding: 0 14px; border-radius: 999px; background: var(--paper-2); font-size: 16px; font-weight: 800; color: var(--ink-2); }
+.s-lowbtn.is-on { background: var(--ink); color: var(--paper); }
+.s-lowbtn:active { background: var(--line); }
+.s-row.is-checking .s-lowbtn { opacity: .3; }
+.s-row.is-saving { opacity: .55; }
 .s-qty { display: flex; align-items: center; background: var(--paper-2); border-radius: 999px; margin-left: 4px; }
 .s-qty button { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 50%; }
 .s-qty button:active { background: var(--line); }
