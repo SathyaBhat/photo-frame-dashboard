@@ -103,16 +103,24 @@
     if (!u.length) return '<div class="label">Usuals · tap to add</div><div class="s-usuals-empty">No usuals yet. Give a card the "Usual" label in Trello (or tell Hermes) and it shows up here.</div>';
     return '<div class="label">Usuals · tap to add</div><div class="s-usuals">' + u.map(liveTile).join('') + '</div>';
   }
-  // Live: the cards labelled Usual (To Buy or Stocked), by name. Array sort is stable in Chromium 106.
+  // Live: the cards labelled Usual (To Buy or Stocked), by name, one tile per name (lower-cased): the open
+  // card if there is one, else the first Stocked one. Array sort is stable in Chromium 106.
   function liveUsuals() {
-    return D.groceries.filter(function (g) { return g.usual; }).sort(function (a, b) {
+    var seen = {}, out = [];
+    D.groceries.filter(function (g) { return g.usual; }).sort(function (a, b) {
       var x = a.name.toLowerCase(), y = b.name.toLowerCase();
       return x < y ? -1 : x > y ? 1 : 0;
+    }).forEach(function (g) {
+      var k = g.name.toLowerCase();
+      if (!(k in seen)) { seen[k] = out.length; out.push(g); } else if (out[seen[k]].done && !g.done) out[seen[k]] = g;
     });
+    return out;
   }
+  // The card already on the list under this usual's name (the usual itself, or another card), if any.
+  function openFor(g) { return g.done ? find(g.name, false) : g; }
   function liveTile(g) {
-    var on = !g.done;
-    return '<button class="s-tile' + (on ? ' is-on' : '') + '" data-usual="' + App.esc(g.id) + '">' +
+    var on = !!openFor(g);
+    return '<button class="s-tile' + (on ? ' is-on' : '') + '" data-usual="' + App.esc(g.id) + '" data-key="' + App.esc(g.name.toLowerCase()) + '">' +
       '<b>' + App.esc(g.name) + '</b><span>' + (on ? App.icon('check', 16) + 'On list' : App.esc(g.cat)) + '</span></button>';
   }
   // Mock: a name from D.usuals.
@@ -133,8 +141,11 @@
   function refreshSuggestFor(g) {
     if (V.query.trim()) return paintSuggest();
     if (live()) {
-      var lt = byData('.s-usuals [data-usual]', 'usual', g.id);
-      if (lt) swap(lt, liveTile(g));
+      // Repaint the tile for g's name: which card it stands for, and whether it is on the list, may change.
+      var k = g.name.toLowerCase(), lt = byData('.s-usuals [data-usual]', 'key', k);
+      var u = liveUsuals().filter(function (x) { return x.name.toLowerCase() === k; })[0];
+      if (lt && u) swap(lt, liveTile(u));
+      else if (lt || u) paintSuggest();
       return;
     }
     var t = byData('.s-usuals [data-add]', 'add', g.name);
@@ -384,7 +395,11 @@
     if ((t = e.target.closest('[data-usual]'))) {
       var u = byId(t.dataset.usual);
       if (!u || !live()) return paintSuggest();
-      if (!u.done) return flash(u); // already on the list
+      var on = openFor(u);
+      if (on) { // already on the list: feedback only
+        if (rowEl(on)) return flash(on);
+        return App.toast('Already on the list · <b>' + App.esc(on.name) + '</b>', { icon: 'cart', ms: 2500 });
+      }
       revive(u); paintList(); refreshSuggestFor(u); flash(u); App.emit('data');
       return App.toast('Added back <b>' + App.esc(u.name) + '</b>', { icon: 'cart', ms: 2500 });
     }
