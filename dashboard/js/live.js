@@ -109,14 +109,23 @@
   D.groceriesOffline = false;
   App.groceriesBusy = 0; // writes in flight: don't let a poll overwrite the optimistic state
 
+  function setGroceriesOffline(off) {
+    if (D.groceriesOffline === off) return;
+    D.groceriesOffline = off;
+    App.emit('data');
+    App.rerender();
+  }
+
   function applyGroceries(res) {
     var g = res.groceries;
     if (App.groceriesBusy) return;
     var json = JSON.stringify(g);
-    var changed = json !== grocJSON || D.groceriesOffline || !D.groceriesLive;
+    var changed = json !== grocJSON || !D.groceriesLive;
     grocJSON = json;
-    D.groceriesOffline = false;
-    if (!changed) return;
+    // stale: the server could not reach Trello and sent its last copy. Show it, but flag it offline.
+    var off = !!res.stale;
+    if (!changed) { setGroceriesOffline(off); return; }
+    D.groceriesOffline = off;
     var order = g.categories.concat(['Other']);
     D.groceries = g.items.map(function (i) { if (i.qty == null) i.qty = 1; return i; });
     D.stores = g.stores.map(function (s) { return { id: s.name, name: s.name }; });
@@ -130,9 +139,10 @@
   function loadGroceries() {
     if (App.groceriesBusy) return Promise.resolve();
     return getJSON('groceries').then(applyGroceries).catch(function (e) {
-      if (e.message === 'HTTP 503') return; // server has no Trello configured: stay on mock
+      // 503 before the first success: server has no Trello configured, stay on mock
+      if (e.message === 'HTTP 503' && !D.groceriesLive) return;
       console.warn('HomeHQ live groceries failed, keeping current list:', e.message);
-      if (D.groceriesLive && !D.groceriesOffline) { D.groceriesOffline = true; App.rerender(); }
+      if (D.groceriesLive) setGroceriesOffline(true);
     });
   }
 
