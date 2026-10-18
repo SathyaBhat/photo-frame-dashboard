@@ -98,20 +98,24 @@
         return '<button class="s-ac-row" data-add="' + App.esc(m[0]) + '"><b>' + App.esc(m[0]) + '</b><span class="label">' + (on ? 'On list' + (live() ? '' : ' · ×' + on.qty) : App.esc(live() ? LIVE_CAT[m[1]] || 'Other' : m[1])) + '</span>' + App.icon('plus', 26) + '</button>';
       }).join('') + (exact ? '' : '<button class="s-ac-row s-ac-row--new" data-add="' + App.esc(V.query.trim()) + '"><b>Add “' + App.esc(V.query.trim()) + '”</b><span class="label">' + App.esc(categorize(V.query)) + '</span>' + App.icon('plus', 26) + '</button>') + '</div>';
     }
-    return '<div class="label">Usuals · tap to add</div><div class="s-usuals">' + usuals().map(usualTile).join('') + '</div>';
+    if (!live()) return '<div class="label">Usuals · tap to add</div><div class="s-usuals">' + D.usuals.map(usualTile).join('') + '</div>';
+    var u = liveUsuals();
+    if (!u.length) return '<div class="label">Usuals · tap to add</div><div class="s-usuals-empty">No usuals yet. Give a card the "Usual" label in Trello (or tell Hermes) and it shows up here.</div>';
+    return '<div class="label">Usuals · tap to add</div><div class="s-usuals">' + u.map(liveTile).join('') + '</div>';
   }
-  // Live: what the household already buys, i.e. the Stocked cards, newest first.
-  function usuals() {
-    if (!live()) return D.usuals;
-    var seen = {}, out = [];
-    D.groceries.filter(function (g) { return g.done; })
-      .sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; })
-      .forEach(function (g) {
-        var k = g.name.toLowerCase();
-        if (out.length < 12 && !seen[k]) { seen[k] = true; out.push(g.name); }
-      });
-    return out;
+  // Live: the cards labelled Usual (To Buy or Stocked), by name. Array sort is stable in Chromium 106.
+  function liveUsuals() {
+    return D.groceries.filter(function (g) { return g.usual; }).sort(function (a, b) {
+      var x = a.name.toLowerCase(), y = b.name.toLowerCase();
+      return x < y ? -1 : x > y ? 1 : 0;
+    });
   }
+  function liveTile(g) {
+    var on = !g.done;
+    return '<button class="s-tile' + (on ? ' is-on' : '') + '" data-usual="' + App.esc(g.id) + '">' +
+      '<b>' + App.esc(g.name) + '</b><span>' + (on ? App.icon('check', 16) + 'On list' : App.esc(g.cat)) + '</span></button>';
+  }
+  // Mock: a name from D.usuals.
   function usualTile(name) {
     var on = find(name, false), stocked = live() && find(name, true);
     var cat = stocked ? stocked.cat : categorize(name);
@@ -128,6 +132,11 @@
   function rowEl(g) { return byData('.s-list .s-row', 'id', g.id); }
   function refreshSuggestFor(g) {
     if (V.query.trim()) return paintSuggest();
+    if (live()) {
+      var lt = byData('.s-usuals [data-usual]', 'usual', g.id);
+      if (lt) swap(lt, liveTile(g));
+      return;
+    }
     var t = byData('.s-usuals [data-add]', 'add', g.name);
     if (t) swap(t, usualTile(g.name));
   }
@@ -371,6 +380,13 @@
       t.parentNode.querySelector('.num').textContent = q.qty;
       refreshSuggestFor(q);
       return;
+    }
+    if ((t = e.target.closest('[data-usual]'))) {
+      var u = byId(t.dataset.usual);
+      if (!u || !live()) return paintSuggest();
+      if (!u.done) return flash(u); // already on the list
+      revive(u); paintList(); refreshSuggestFor(u); flash(u); App.emit('data');
+      return App.toast('Added back <b>' + App.esc(u.name) + '</b>', { icon: 'cart', ms: 2500 });
     }
     if ((t = e.target.closest('[data-add]'))) return add(t.dataset.add);
     if ((t = e.target.closest('[data-store]'))) { V.store = t.dataset.store; return paintList(); }
