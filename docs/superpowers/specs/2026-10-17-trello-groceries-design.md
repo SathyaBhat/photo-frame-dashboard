@@ -60,13 +60,15 @@ this work, written after the frame side works.
   shows only on `All`. Adding from `All` creates a card with no store label; adding from a store
   tab gives it that store's label. `catOrder` is the same for every tab.
 - **Stocked:** the server returns every Stocked card labelled `Usual` plus the most recently active
-  others (Trello's `dateLastActivity`) up to 60 in all, newest first; a usual is never dropped by the
-  cap. The "Got it" drawer shows the ones moved in the last 24 hours. Everything in the drawer can be
-  added back.
-- **Usuals:** the tiles are the cards labelled `Usual`, in To Buy or Stocked, sorted by name. A tile
-  for a To Buy card shows "On list"; tapping a Stocked one moves that card back to To Buy with its
-  labels (no new card). With no usuals the panel says how to add one. `Usual` is independent of
-  the list a card is in and of `Low`; the owner or Hermes sets it in Trello.
+  others (Trello's `dateLastActivity`) up to 60 in all (more only when usuals alone exceed 60),
+  newest first; a usual is never dropped by the cap. The "Got it" drawer shows the ones moved in
+  the last 24 hours. Everything in the drawer can be added back.
+- **Usuals:** the tiles are the cards labelled `Usual`, in To Buy or Stocked, sorted by name, one
+  tile per name (ignoring case; the open card wins). A tile shows "On list" when any card of that
+  name is in To Buy, and a tap then only gives feedback; tapping a Stocked one moves that card
+  back to To Buy with its labels (no new card). With no usuals the panel says how to add one.
+  `Usual` is independent of the list a card is in and of `Low`; the owner or Hermes sets it in
+  Trello. Hermes moves a Stocked card back rather than creating a second one with the same name.
 - **Fields Trello can't supply:** `qty` is dropped for Trello cards (the quantity is in the name).
   The mock list, with its quantity buttons, is only used when the server answers 503 at startup
   because Trello is not configured.

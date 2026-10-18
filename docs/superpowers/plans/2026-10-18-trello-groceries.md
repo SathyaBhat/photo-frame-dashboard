@@ -134,6 +134,7 @@
 - Consumes: `App.groceriesWrite` and `D.groceriesLive`/`D.groceriesOffline` (Task 5).
 - Behaviour when `D.groceriesLive`: ± quantity buttons are not rendered; each row shows a **Low** tag when `g.low` and a 56 px tap target to toggle it (`{low}`); check-off posts `{done:true}` after the existing 1.2 s pending delay with the existing undo toast (undo posts `{done:false}`); drawer lists items with `done` and `at` in the last 24 hours and *Add back* posts `{done:false}`; add posts `{name, cat, store}` with `store` = the active tab (none on All); *Clear checked* is hidden for live data. Store tabs come from `D.stores`. A "Couldn't reach Trello" line appears under the header when `D.groceriesOffline`. A failed write shows a toast and the next poll restores truth. Mock behaviour (qty, local clear) is unchanged when not live.
 - Usuals tiles come from the Stocked items' names (newest first, up to 12) when live.
+  (Superseded: usuals are now the cards with the `Usual` label; see the spec's "Usuals" entry.)
 
 - [ ] **Step 1: Implement** the view changes keeping the granular DOM updates; every name/note through `App.esc()`.
 - [ ] **Step 2: Verify locally** against a throwaway test board or after the Task 4 migration: tick, undo, add, Low toggle, store tab add; each shows on the Trello board. Confirm a card named `<b>&"x"` renders as text.
