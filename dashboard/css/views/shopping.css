@@ -27,7 +27,7 @@
 .s-name small { font-size: 16px; color: var(--mute); }
 .s-store { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; background: var(--ink); color: var(--paper); }
 .s-low { flex: none; font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; background: var(--amber); color: var(--ink); }
-.s-lowbtn { flex: none; min-width: 112px; height: 60px; margin-left: 4px; padding: 0 14px; border-radius: 999px; background: var(--paper-2); font-size: 16px; font-weight: 800; color: var(--ink-2); }
+.s-lowbtn { flex: none; min-width: 112px; height: 60px; margin-left: 4px; padding: 0 14px; text-align: center; border-radius: 999px; background: var(--paper-2); font-size: 16px; font-weight: 800; color: var(--ink-2); }
 .s-lowbtn.is-on { background: var(--ink); color: var(--paper); }
 .s-lowbtn:active { background: var(--line); }
 .s-row.is-checking .s-lowbtn { opacity: .3; }
@@ -85,4 +85,7 @@
 .s-ac { display: flex; flex-direction: column; gap: 8px; }
 .s-ac-row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 0 18px 0 22px; border-radius: 14px; background: var(--card); }
 .s-ac-row b { flex: 1; font-size: 22px; }
+.s-cats { display: flex; flex-wrap: wrap; gap: 8px; }
+.s-chip { min-height: 52px; padding: 0 18px; border-radius: 999px; background: var(--card); font-size: 18px; font-weight: 700; text-align: center; }
+.s-chip.is-on { background: var(--ink); color: var(--paper); }
 .s-ac-row--new { background: transparent; box-shadow: inset 0 0 0 2px var(--line); }

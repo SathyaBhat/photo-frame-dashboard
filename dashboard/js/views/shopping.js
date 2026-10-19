@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   var D = window.DATA;
-  var V = { el: null, store: 'all', query: '', drawer: false, pending: {}, flash: null, renders: 0 };
+  var V = { el: null, store: 'all', query: '', drawer: false, cat: null, pending: {}, flash: null, renders: 0 };
   var DAY = 24 * 60 * 60 * 1000;
   var tmpId = 0;
   // The catalog guesses use the mock's category names; the board has its own.
@@ -41,6 +41,14 @@
     var cat = hit ? hit[1] : 'Other';
     if (live()) return LIVE_CAT[cat] || 'Other';
     return cat;
+  }
+  // The category a new item will go to: the one picked from the chips, else the guess.
+  function newCat(name) { return V.cat || categorize(name); }
+  function catChips(sel) {
+    var cats = (D.catOrder.all || []).filter(function (c) { return c !== 'Other'; }).concat('Other');
+    return '<div class="label">Category</div><div class="s-cats">' + cats.map(function (c) {
+      return '<button class="s-chip' + (c === sel ? ' is-on' : '') + '" data-pickcat="' + App.esc(c) + '">' + App.esc(c) + '</button>';
+    }).join('') + '</div>';
   }
   function find(name, isDone) {
     return D.groceries.filter(function (g) { return !!g.done === isDone && g.name.toLowerCase() === name.toLowerCase(); })[0];
@@ -96,7 +104,7 @@
       return '<div class="label">Suggestions</div><div class="s-ac">' + matches.map(function (m) {
         var on = find(m[0], false);
         return '<button class="s-ac-row" data-add="' + App.esc(m[0]) + '"><b>' + App.esc(m[0]) + '</b><span class="label">' + (on ? 'On list' + (live() ? '' : ' · ×' + on.qty) : App.esc(live() ? LIVE_CAT[m[1]] || 'Other' : m[1])) + '</span>' + App.icon('plus', 26) + '</button>';
-      }).join('') + (exact ? '' : '<button class="s-ac-row s-ac-row--new" data-add="' + App.esc(V.query.trim()) + '"><b>Add “' + App.esc(V.query.trim()) + '”</b><span class="label">' + App.esc(categorize(V.query)) + '</span>' + App.icon('plus', 26) + '</button>') + '</div>';
+      }).join('') + (exact ? '' : '<button class="s-ac-row s-ac-row--new" data-add="' + App.esc(V.query.trim()) + '"><b>Add “' + App.esc(V.query.trim()) + '”</b><span class="label">' + App.esc(newCat(V.query)) + '</span>' + App.icon('plus', 26) + '</button>' + catChips(newCat(V.query))) + '</div>';
     }
     if (!live()) return '<div class="label">Usuals · tap to add</div><div class="s-usuals">' + D.usuals.map(usualTile).join('') + '</div>';
     var u = liveUsuals();
@@ -224,7 +232,7 @@
       '</aside></div>';
     var input = V.el.querySelector('.s-input');
     input.value = V.query;
-    input.addEventListener('input', function () { V.query = input.value; paintSuggest(); });
+    input.addEventListener('input', function () { V.query = input.value; V.cat = null; paintSuggest(); });
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && input.value.trim()) { add(input.value); } });
     paintList(); paintSuggest();
   }
@@ -292,7 +300,7 @@
     } else {
       var cat = D.catalog.filter(function (c) { return c[0].toLowerCase() === name.toLowerCase(); })[0];
       var t = tab();
-      g = { name: cat ? cat[0] : name.charAt(0).toUpperCase() + name.slice(1), cat: categorize(name), qty: 1, done: false, note: '' };
+      g = { name: cat ? cat[0] : name.charAt(0).toUpperCase() + name.slice(1), cat: cat ? categorize(name) : newCat(name), qty: 1, done: false, note: '' };
       if (live()) {
         g.id = 'tmp' + (++tmpId); g._tmp = true; g.low = false; g.at = new Date().toISOString();
         g.store = t === 'all' ? '' : t;
@@ -309,7 +317,7 @@
       insertRow(g);
     }
     var hadQuery = !!V.query.trim();
-    V.query = '';
+    V.query = ''; V.cat = null;
     var input = V.el.querySelector('.s-input');
     if (input) input.value = '';
     if (hadQuery) paintSuggest(); else refreshSuggestFor(g);
@@ -403,6 +411,7 @@
       revive(u); paintList(); refreshSuggestFor(u); flash(u); App.emit('data');
       return App.toast('Added back <b>' + App.esc(u.name) + '</b>', { icon: 'cart', ms: 2500 });
     }
+    if ((t = e.target.closest('[data-pickcat]'))) { V.cat = t.dataset.pickcat; return paintSuggest(); }
     if ((t = e.target.closest('[data-add]'))) return add(t.dataset.add);
     if ((t = e.target.closest('[data-store]'))) { V.store = t.dataset.store; return paintList(); }
     if ((t = e.target.closest('[data-drawer]'))) { V.drawer = !V.drawer; return paintList(); }
