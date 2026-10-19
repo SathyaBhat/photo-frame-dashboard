@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>
+    // Served under /frame/: without the trailing slash the relative api/ and version.json fetches miss.
+    if (location.pathname.slice(-1) !== '/' && location.pathname.split('/').pop().indexOf('.') < 0) history.replaceState(null, '', location.pathname + '/' + location.search + location.hash);
+  </script>
   <meta name="viewport" content="width=1280, initial-scale=1, user-scalable=no">
   <meta name="theme-color" content="#F2EEE6">
   <title>Home HQ</title>
