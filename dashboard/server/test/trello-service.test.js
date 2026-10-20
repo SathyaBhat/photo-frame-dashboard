@@ -40,7 +40,7 @@ test('reads the board in one call and caches until the ttl passes', async functi
   var a = await t.get();
   assert.equal(a.stale, false);
   assert.equal(a.data.items.length, 2);
-  assert.deepEqual(f.calls[0], { method: 'GET', path: '/boards/b1', query: { lists: 'open', cards: 'open', labels: 'all' } });
+  assert.deepEqual(f.calls[0], { method: 'GET', path: '/boards/b1', query: { lists: 'open', cards: 'open', labels: 'all', members: 'all', member_fields: 'fullName' } });
   c.t += 500; await t.get();
   assert.equal(f.reads().length, 1);
   c.t += 600; await t.get();

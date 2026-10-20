@@ -26,7 +26,10 @@ function findList(board, key) {
 export function resolveIds(board) {
   var labels = {};
   (board.labels || []).forEach(function (l) { if (l.name) labels[l.name] = l.id; });
-  return { toBuy: findList(board, 'to buy'), stocked: findList(board, 'stocked'), labels: labels };
+  return {
+    toBuy: findList(board, 'to buy'), stocked: findList(board, 'stocked'), labels: labels,
+    chores: findList(board, 'chores'), choresDone: findList(board, 'chores done')
+  };
 }
 
 // Keeps what a person wrote; drops the lines the old Kanban bot and the migration added.
@@ -75,4 +78,32 @@ export function buildGroceries(input) {
     .sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; })) : [];
 
   return { items: toBuy.concat(stocked), stores: stores, categories: CATEGORIES.slice() };
+}
+
+// Chores: cards in the Chores list are open, cards in Chores done are done. The assignee is the first of the
+// card's members that belongs to the board; a card nobody (known) is on is for either of them.
+export function buildChores(board) {
+  var ids = resolveIds(board);
+  if (!ids.chores) throw new Error('no Chores list');
+  var members = (board.members || []).map(function (m) {
+    var full = String(m.fullName || '').trim();
+    return { id: m.id, name: full.split(/\s+/)[0] || full };
+  });
+  var known = {};
+  members.forEach(function (m) { known[m.id] = true; });
+  var labelsById = {};
+  (board.labels || []).forEach(function (l) { labelsById[l.id] = l.name; });
+
+  function toChore(card, done) {
+    var who = (card.idMembers || []).filter(function (id) { return known[id]; })[0] || '';
+    var usual = (card.idLabels || []).some(function (id) { return isUsualName(labelsById[id]); });
+    return { id: card.id, name: card.name, who: who, usual: usual, done: done, at: card.dateLastActivity };
+  }
+
+  var open = (board.cards || []).filter(function (c) { return !c.closed; });
+  var todo = open.filter(function (c) { return c.idList === ids.chores; }).map(function (c) { return toChore(c, false); });
+  var done = ids.choresDone ? capStocked(open.filter(function (c) { return c.idList === ids.choresDone; })
+    .map(function (c) { return toChore(c, true); })
+    .sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; })) : [];
+  return { items: todo.concat(done), members: members };
 }

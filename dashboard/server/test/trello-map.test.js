@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CATEGORIES, buildGroceries, resolveIds, listKey } from '../trello-map.js';
+import { CATEGORIES, buildGroceries, buildChores, resolveIds, listKey } from '../trello-map.js';
 
 function board() { return JSON.parse(readFileSync(new URL('./fixtures/trello-board.json', import.meta.url))); }
 var NOW = new Date('2026-10-18T03:00:00Z');
@@ -208,4 +208,70 @@ test('the Stocked cap keeps a Usuals-labelled Stocked card outside the 60 newest
   bulk(b, 70, [], 'f', 100);
   var done = build(b).items.filter(function (i) { return i.done; });
   for (var k = 0; k < 3; k++) assert.ok(done.some(function (i) { return i.name === 'u ' + k && i.usual; }), 'u ' + k);
+});
+
+// ---- chores
+function choreBoard() {
+  return {
+    id: 'b',
+    lists: [{ id: 'lc', name: 'Chores' }, { id: 'ld', name: '✅ Chores done' }, { id: 'lbuy', name: 'To Buy' }],
+    labels: [{ id: 'lab-u', name: 'Usual' }],
+    members: [{ id: 'm-sat', fullName: 'Sat Bhat' }, { id: 'm-jo', fullName: 'Jo Bhat' }],
+    cards: [
+      { id: 'c1', name: 'Mow', idList: 'lc', idLabels: ['lab-u'], idMembers: ['m-jo'], dateLastActivity: '2026-10-19T00:00:00Z' },
+      { id: 'c2', name: 'Bins', idList: 'ld', idLabels: [], idMembers: [], dateLastActivity: '2026-10-18T00:00:00Z' },
+      { id: 'c3', name: 'Weeds', idList: 'lc', idLabels: [], idMembers: [], dateLastActivity: '2026-10-17T00:00:00Z' },
+      { id: 'c4', name: 'Gone', idList: 'lc', idLabels: [], idMembers: [], closed: true, dateLastActivity: '2026-10-17T00:00:00Z' },
+      { id: 'c5', name: 'Milk', idList: 'lbuy', idLabels: [], idMembers: [], dateLastActivity: '2026-10-17T00:00:00Z' }
+    ]
+  };
+}
+function chore(r, name) { return r.items.filter(function (i) { return i.name === name; })[0]; }
+
+test('buildChores maps open and done cards and members', function () {
+  var r = buildChores(choreBoard());
+  assert.deepEqual(r.members, [{ id: 'm-sat', name: 'Sat' }, { id: 'm-jo', name: 'Jo' }]);
+  assert.deepEqual(chore(r, 'Mow'), { id: 'c1', name: 'Mow', who: 'm-jo', usual: true, done: false, at: '2026-10-19T00:00:00Z' });
+  assert.equal(chore(r, 'Bins').done, true);
+  assert.equal(chore(r, 'Weeds').who, '');
+  assert.equal(chore(r, 'Gone'), undefined);
+  assert.equal(chore(r, 'Milk'), undefined);
+});
+
+test('buildChores: unknown or several members resolve to the first known one', function () {
+  var b = choreBoard();
+  b.cards[0].idMembers = ['stranger', 'm-jo', 'm-sat'];
+  b.cards[2].idMembers = ['stranger'];
+  var r = buildChores(b);
+  assert.equal(chore(r, 'Mow').who, 'm-jo');
+  assert.equal(chore(r, 'Weeds').who, '');
+});
+
+test('buildChores throws without a Chores list', function () {
+  var b = choreBoard();
+  b.lists = b.lists.filter(function (l) { return l.name !== 'Chores'; });
+  assert.throws(function () { buildChores(b); }, /no Chores list/);
+});
+
+test('buildChores tolerates a missing Chores done list', function () {
+  var b = choreBoard();
+  b.lists = b.lists.filter(function (l) { return !/done/.test(l.name); });
+  var r = buildChores(b);
+  assert.equal(chore(r, 'Mow').done, false);
+  assert.equal(chore(r, 'Bins'), undefined);
+});
+
+test('buildChores keeps usuals when capping done cards', function () {
+  var b = choreBoard();
+  b.cards = [];
+  for (var i = 0; i < 70; i++) b.cards.push({ id: 'd' + i, name: 'D' + i, idList: 'ld', idLabels: i < 2 ? ['lab-u'] : [], idMembers: [], dateLastActivity: new Date(Date.UTC(2026, 9, 1) + (i < 2 ? 0 : i) * 60000).toISOString() });
+  var r = buildChores(b);
+  assert.equal(r.items.length, 60);
+  assert.equal(r.items.filter(function (x) { return x.usual; }).length, 2);
+});
+
+test('resolveIds finds the chores lists', function () {
+  var ids = resolveIds(choreBoard());
+  assert.equal(ids.chores, 'lc');
+  assert.equal(ids.choresDone, 'ld');
 });

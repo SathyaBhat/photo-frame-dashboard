@@ -52,7 +52,7 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
     // A write bumps gen; a read begun before it is never joined by, or cached for, later callers.
     var mine = cache.inflight && cache.inflight.gen === gen ? cache.inflight : null;
     if (!mine) {
-      mine = { gen: gen, promise: api('GET', '/boards/' + board, { lists: 'open', cards: 'open', labels: 'all' })
+      mine = { gen: gen, promise: api('GET', '/boards/' + board, { lists: 'open', cards: 'open', labels: 'all', members: 'all', member_fields: 'fullName' })
         .then(function (raw) { return { raw: raw, data: buildGroceries({ board: raw, now: new Date(nowMs()) }) }; }) };
       cache.inflight = mine;
     }
