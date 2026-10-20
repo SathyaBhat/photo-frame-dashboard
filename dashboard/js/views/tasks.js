@@ -1,10 +1,10 @@
 // Chores: the Chores lists on the Trello board (live.js), laid out like Shopping. Open chores are grouped by
 // assignee (a Trello card member; nobody = "Either"), the usuals are tiles that put a done chore back, and
-// ticked chores wait in a Got-it drawer. Writes go through App.choresWrite; there is no mock list.
+// ticked chores wait in a Done drawer. Writes go through App.choresWrite; there is no mock list.
 (function () {
   'use strict';
   var D = window.DATA;
-  var V = { el: null, query: '', drawer: false, popup: null };
+  var V = { el: null, query: '', drawer: false, popup: null, renders: 0 };
   var DAY = 24 * 60 * 60 * 1000;
   var tmpId = 0;
 
@@ -98,7 +98,14 @@
   }
   function paintList() { var l = V.el.querySelector('.s-list'); var st = l.scrollTop; closePop(); l.innerHTML = listHTML(); l.scrollTop = st; paintHead(); }
   function paintSuggest() { V.el.querySelector('.s-suggest').innerHTML = suggestHTML(); }
-  function repaint() { if (V.el && V.el.querySelector('.s-list')) { paintList(); paintSuggest(); } }
+  // Background refresh: keep the assign popup open if its chore is still there.
+  function repaint() {
+    if (!V.el || !V.el.querySelector('.s-list')) return;
+    var pid = V.popup;
+    paintList(); paintSuggest();
+    var c = pid && byId(pid), b = c && byData('.s-list [data-assign]', 'assign', pid);
+    if (c && b) openPop(b, c);
+  }
   function flash(c) {
     var r = byData('.s-list .s-row', 'id', c.id);
     if (!r) return;
@@ -153,7 +160,7 @@
   function write(path, body, revert) {
     App.choresBusy++;
     var step = queue.then(function () {
-      var req;
+      var req, before = V.renders;
       try {
         req = App.choresWrite(path, body);
       } catch (e) {
@@ -162,7 +169,7 @@
         App.choresBusy--;
       }
       return req.then(function () {
-        guard('repaint', repaint);
+        guard('repaint', function () { if (V.renders === before) repaint(); }); // live.js rerenders itself when the reply changed the list
         guard('emit', function () { App.emit('data'); });
       }, function (e) {
         console.warn('HomeHQ chores write failed:', path, e && e.message);
@@ -233,7 +240,6 @@
   function assign(c, who) {
     if (saving(c)) return;
     var was = c.who, id = c.id;
-    if (was === who) return;
     c.who = who;
     write('chores/' + id, { who: who }, function () { var cur = byId(id); if (cur) cur.who = was; });
     paintList();
@@ -297,7 +303,7 @@
     show: function (el, opts) {
       if (!V.el) { V.el = el; el.addEventListener('click', onClick); }
       // A data refresh repaints in place, so it doesn't close the keyboard mid-word.
-      if (opts && opts.rerender && V.el.querySelector('.s-list')) return repaint();
+      if (opts && opts.rerender && V.el.querySelector('.s-list')) { V.renders++; return repaint(); }
       render();
     },
     hide: function () { if (V.el) closePop(); }

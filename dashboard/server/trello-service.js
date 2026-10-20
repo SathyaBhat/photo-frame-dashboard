@@ -48,7 +48,7 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
   var creating = {};
 
   async function get() {
-    if (cache.data && nowMs() - cache.at < ttl) return { data: cache.data, stale: false, at: cache.at };
+    if (cache.data && nowMs() - cache.at < ttl) return { data: cache.data, raw: cache.raw, stale: false, at: cache.at };
     // A write bumps gen; a read begun before it is never joined by, or cached for, later callers.
     var mine = cache.inflight && cache.inflight.gen === gen ? cache.inflight : null;
     if (!mine) {
@@ -60,12 +60,12 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
       var got = await mine.promise;
       if (mine.gen === gen) {
         cache.raw = got.raw; cache.data = got.data; cache.at = nowMs();
-        return { data: cache.data, stale: false, at: cache.at };
+        return { data: cache.data, raw: got.raw, stale: false, at: cache.at };
       }
-      return { data: got.data, stale: false, at: nowMs() };
+      return { data: got.data, raw: got.raw, stale: false, at: nowMs() };
     } catch (e) {
       console.error('trello refresh failed:', e.message);
-      if (cache.data) return { data: cache.data, stale: true, at: cache.at };
+      if (cache.data) return { data: cache.data, raw: cache.raw, stale: true, at: cache.at };
       throw e;
     } finally {
       if (cache.inflight === mine) cache.inflight = null;
@@ -175,7 +175,7 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
 
   async function getChores() {
     var r = await get();
-    return { data: buildChores(cache.raw), stale: r.stale, at: r.at };
+    return { data: buildChores(r.raw), stale: r.stale, at: r.at };
   }
 
   async function writeChore(id, fn) {
@@ -211,7 +211,12 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
       return writeChore(id, async function (raw, card) {
         var mine = card.idMembers || [];
         for (var i = 0; i < mine.length; i++) {
-          if (mine[i] !== who) await api('DELETE', '/cards/' + id + '/idMembers/' + mine[i], {});
+          if (mine[i] === who) continue;
+          try {
+            await api('DELETE', '/cards/' + id + '/idMembers/' + mine[i], {});
+          } catch (e) {
+            if (!(e instanceof NotFound)) throw e; // already off the card
+          }
         }
         if (who && mine.indexOf(who) < 0) await api('POST', '/cards/' + id + '/idMembers', { value: who });
       });

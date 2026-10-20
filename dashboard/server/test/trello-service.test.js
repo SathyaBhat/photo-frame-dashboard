@@ -520,3 +520,28 @@ test('a chore write invalidates the cache', async function () {
   await s.t.removeChore('k1');
   assert.equal(s.f.reads().length, 2);
 });
+
+test('getChores read that races a write answers from its own board read', async function () {
+  var c = clock(T0), f = fake({ board: choreBoard() }), reads = 0;
+  var api = function (m, p, q) {
+    if (m !== 'GET') return f(m, p, q);
+    var n = ++reads;
+    var board = JSON.parse(JSON.stringify(f.board));
+    board.cards[2].name = 'Mow v' + n; // k1, so each read is told apart
+    return (n === 2 ? new Promise(function (r) { setTimeout(r, 30); }) : Promise.resolve()).then(function () { return board; });
+  };
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: api, ttlMs: 1000, clock: c });
+  await t.getChores(); // read 1 fills the cache
+  c.t += 2000;
+  var racing = t.getChores(); // read 2: slow
+  await new Promise(function (r) { setTimeout(r, 5); });
+  await t.removeChore('k1'); // writes from the cached board, then invalidates and reads (read 3)
+  var r = await racing;
+  assert.equal(r.data.items.filter(function (i) { return i.id === 'k1'; })[0].name, 'Mow v2');
+});
+
+test('setChoreWho still adds the new member when removing the old one 404s', async function () {
+  var s = choresSvc({ fail: function (m, p) { return m === 'DELETE'; }, error: new NotFound('gone') });
+  await s.t.setChoreWho('k1', 'm-jo');
+  assert.deepEqual(s.f.writes().map(function (w) { return w.method + ' ' + w.path; }), ['DELETE /cards/k1/idMembers/m-sat', 'POST /cards/k1/idMembers']);
+});
