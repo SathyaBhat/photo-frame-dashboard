@@ -127,12 +127,7 @@
     return App.events().filter(function (e) { return e.id === id; })[0];
   };
 
-  // ------------------------------------------------------------ chores + weather helpers
-  App.currentRoutine = function () {
-    var h = App.now().getHours();
-    for (var i = 0; i < D.routines.length; i++) if (h >= D.routines[i].from && h < D.routines[i].to) return D.routines[i];
-    return D.routines[2];
-  };
+  // ------------------------------------------------------------ weather helpers
   // BOM shows rain icons at 20-40% chance, so a 50% cut-off said 'Dry all day' on a showery day.
   App.WET_CHANCE = 40;
   App.weatherNow = function () {

@@ -199,6 +199,79 @@
     });
   };
 
+  // Chores (the Chores lists on the same Trello board), via the frame server. Same shape as groceries, but there is
+  // no mock list: until the first success D.chores is empty, D.choresOffline says whether the server could not
+  // answer, and a 503 (no Trello configured) leaves D.choresOffline false with D.choresLive false.
+  var chorJSON = '';
+  var chorGen = 0; // bumped when a write starts and ends: a poll answered across a write is discarded
+  D.choresLive = false;
+  D.choresOffline = false;
+  App.choresBusy = 0; // writes in flight: don't let a poll overwrite the optimistic state
+
+  function setChoresOffline(off) {
+    if (D.choresOffline === off) return;
+    D.choresOffline = off;
+    App.emit('data');
+    App.rerender();
+  }
+
+  function applyChores(res) {
+    var c = res.chores;
+    if (App.choresBusy) return;
+    var json = JSON.stringify(c);
+    var changed = json !== chorJSON || !D.choresLive;
+    chorJSON = json;
+    var off = !!res.stale;
+    if (!changed) { setChoresOffline(off); return; }
+    D.choresOffline = off;
+    D.chores = c.items;
+    D.members = c.members;
+    D.choresLive = true;
+    App.emit('data');
+    App.rerender();
+  }
+
+  function loadChores() {
+    if (App.choresBusy) return Promise.resolve();
+    var gen = chorGen;
+    return getJSON('chores').then(function (res) {
+      if (gen === chorGen) applyChores(res);
+    }).catch(function (e) {
+      if (gen !== chorGen) return;
+      if (e.message === 'HTTP 503' && !D.choresLive) { setChoresOffline(false); return; }
+      console.warn('HomeHQ live chores failed:', e.message);
+      setChoresOffline(true);
+    });
+  }
+
+  // Write to the Chores lists. Rejects if the server or Trello refused, or after 30 s without an answer (which
+  // also flags the list offline). The reply carries the fresh list.
+  App.choresWrite = function (path, body) {
+    var held = true;
+    function release() { if (held) { held = false; App.choresBusy--; chorGen++; } }
+    App.choresBusy++;
+    chorGen++;
+    var req;
+    try {
+      req = fetch(API + path, { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}), signal: writeSignal() });
+    } catch (e) {
+      req = Promise.reject(e);
+    }
+    return req.then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (res) {
+      release();
+      try { applyChores(res); } catch (e) { console.warn('HomeHQ chores reply not applied:', e && e.message); }
+    }, function (e) {
+      release();
+      if (e && e.name === 'TimeoutError') {
+        try { setChoresOffline(true); } catch (x) { console.warn('HomeHQ chores offline repaint failed:', x && x.message); }
+      }
+      throw e;
+    });
+  };
+
   // Deploy detection: version.json is rewritten on every build. When it differs from the id this
   // page was built with, reload, but only once nobody has touched the screen for a while.
   var BUILD = typeof __BUILD_ID__ === 'undefined' ? null : __BUILD_ID__;
@@ -220,6 +293,8 @@
     loadCalendar();
     loadGroceries();
     setInterval(loadGroceries, GROC_MS);
+    loadChores();
+    setInterval(loadChores, GROC_MS);
     setInterval(loadHome, HOME_MS);
     setInterval(loadCalendar, CAL_MS);
     setInterval(loadWeather, WEATHER_MS);

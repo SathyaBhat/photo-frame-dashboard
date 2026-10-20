@@ -19,15 +19,9 @@ window.DATA = (function () {
   var busyExtras = [];
 
   // ---------------------------------------------------------------- chores
-  var routines = [
-    { id: 'morning', name: 'Morning', range: '6 – 11 AM', from: 0, to: 11 },
-    { id: 'after', name: 'After school', range: '11 AM – 5 PM', from: 11, to: 17 },
-    { id: 'evening', name: 'Evening', range: '5 – 10 PM', from: 17, to: 24 }
-  ];
-  // No chore source yet: the Tasks view shows empty lanes.
+  // Filled from the Chores lists on the Trello board by live.js.
   var chores = [];
-  var stars = {};
-  var week = {};
+  var members = [];
 
   // ---------------------------------------------------------------- shopping
   // The list, stores and usuals come from the Trello board (live.js). The catalog only feeds the add-item guesses.
@@ -101,7 +95,7 @@ window.DATA = (function () {
   return {
     people: people, family: family, ALL: ALL,
     events: events, busyExtras: busyExtras,
-    routines: routines, chores: chores, stars: stars, week: week,
+    chores: chores, members: members,
     stores: stores, catOrder: catOrder, groceries: groceries, catalog: catalog, usuals: usuals,
     rooms: rooms, devices: devices, climate: climate, battery: battery, media: media, cameras: cameras, scenes: scenes,
     weather: weather, photos: photos,
