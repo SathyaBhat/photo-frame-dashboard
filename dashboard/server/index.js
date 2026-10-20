@@ -6,6 +6,7 @@ import { buildHome, buildBattery, buildCommand, BadRequest } from './ha-map.js';
 import { createCalendar, fetchFeed } from './calendar-service.js';
 import { createTrello } from './trello-service.js';
 import { groceriesRoute } from './groceries-route.js';
+import { choresRoute } from './chores-route.js';
 
 var BOM = 'https://api.weather.bom.gov.au/v1';
 var TTL = 15 * 60 * 1000;
@@ -188,6 +189,7 @@ function send(res, status, body) {
 }
 
 var groceries = groceriesRoute({ trello: trello, readJSON: readJSON, send: send });
+var chores = choresRoute({ trello: trello, readJSON: readJSON, send: send });
 
 createServer(async function (req, res) {
   var path = new URL(req.url, 'http://x').pathname;
@@ -203,6 +205,7 @@ createServer(async function (req, res) {
   }
   if (path === '/api/home' || /^\/api\/(device|scene|media)\//.test(path)) return homeRoute(req, res, path);
   if (path === '/api/groceries' || path.indexOf('/api/groceries/') === 0) return groceries(req, res, path);
+  if (path === '/api/chores' || path.indexOf('/api/chores/') === 0) return chores(req, res, path);
   if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
   if (path === '/api/health') return send(res, 200, { ok: true });
   if (path === '/api/calendar') {
