@@ -1,5 +1,5 @@
 // Reads the grocery board through a short cache and writes card changes back to Trello.
-import { buildGroceries, resolveIds, isUsualName, CATEGORIES, USUAL } from './trello-map.js';
+import { buildGroceries, buildChores, resolveIds, isUsualName, CATEGORIES, USUAL } from './trello-map.js';
 import { BadRequest } from './ha-map.js';
 
 export { BadRequest };
@@ -139,24 +139,25 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
   }
 
   // Usual may be named Usual or Usuals (any case): any alias on the card counts, and off removes them all.
+  async function setUsualCard(id, raw, card, on) {
+    var aliases = (raw.labels || []).filter(function (l) { return isUsualName(l.name); });
+    var onCard = aliases.filter(function (l) { return has(card, l.id); });
+    if (on) {
+      if (onCard.length) return;
+      var pick = aliases.filter(function (l) { return l.name === USUAL; })[0] || aliases[0];
+      await api('POST', '/cards/' + id + '/idLabels', { value: pick ? pick.id : await labelId(raw, USUAL) });
+      return;
+    }
+    for (var i = 0; i < onCard.length; i++) {
+      try {
+        await api('DELETE', '/cards/' + id + '/idLabels/' + onCard[i].id, {});
+      } catch (e) {
+        if (!(e instanceof NotFound)) throw e;
+      }
+    }
+  }
   function setUsualLabel(id, on) {
-    return write(id, async function (raw, card) {
-      var aliases = (raw.labels || []).filter(function (l) { return isUsualName(l.name); });
-      var onCard = aliases.filter(function (l) { return has(card, l.id); });
-      if (on) {
-        if (onCard.length) return;
-        var pick = aliases.filter(function (l) { return l.name === USUAL; })[0] || aliases[0];
-        await api('POST', '/cards/' + id + '/idLabels', { value: pick ? pick.id : await labelId(raw, USUAL) });
-        return;
-      }
-      for (var i = 0; i < onCard.length; i++) {
-        try {
-          await api('DELETE', '/cards/' + id + '/idLabels/' + onCard[i].id, {});
-        } catch (e) {
-          if (!(e instanceof NotFound)) throw e;
-        }
-      }
-    });
+    return write(id, function (raw, card) { return setUsualCard(id, raw, card, on); });
   }
 
   async function setOnly(id, test, name) {
@@ -169,8 +170,74 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
     });
   }
 
+  // ---- chores: cards in the Chores / Chores done lists, assigned through the card's members.
+  function isMember(raw, id) { return (raw.members || []).some(function (m) { return m.id === id; }); }
+
+  async function getChores() {
+    var r = await get();
+    return { data: buildChores(cache.raw), stale: r.stale, at: r.at };
+  }
+
+  async function writeChore(id, fn) {
+    await write(id, fn);
+    return getChores();
+  }
+
   return {
     get: get,
+
+    getChores: getChores,
+
+    tickChore: function (id, done) {
+      return writeChore(id, async function (raw, card) {
+        var ids = resolveIds(raw);
+        var target = done ? ids.choresDone : ids.chores;
+        if (!target) throw new Error(done ? 'no Chores done list' : 'no Chores list');
+        if (card.idList !== target) await api('PUT', '/cards/' + id, { idList: target, pos: 'top' });
+      });
+    },
+
+    setChoreUsual: function (id, usual) {
+      return writeChore(id, async function (raw, card) { await setUsualCard(id, raw, card, usual); });
+    },
+
+    // who is a board member's id, or '' for either of them: the card ends up with exactly that member.
+    setChoreWho: async function (id, who) {
+      if (typeof who !== 'string') throw new BadRequest('invalid member');
+      if (who) {
+        var raw0 = await current();
+        if (!isMember(raw0, who)) throw new BadRequest('unknown member');
+      }
+      return writeChore(id, async function (raw, card) {
+        var mine = card.idMembers || [];
+        for (var i = 0; i < mine.length; i++) {
+          if (mine[i] !== who) await api('DELETE', '/cards/' + id + '/idMembers/' + mine[i], {});
+        }
+        if (who && mine.indexOf(who) < 0) await api('POST', '/cards/' + id + '/idMembers', { value: who });
+      });
+    },
+
+    removeChore: function (id) {
+      return writeChore(id, async function () { await api('PUT', '/cards/' + id, { closed: true }); });
+    },
+
+    addChore: async function (input) {
+      var name = typeof input.name === 'string' ? input.name.trim() : '';
+      if (!name || name.length > 200) throw new BadRequest('invalid name');
+      var who = input.who || '';
+      var raw = await current();
+      if (who && !isMember(raw, who)) throw new BadRequest('unknown member');
+      var list = resolveIds(raw).chores;
+      if (!list) throw new Error('no Chores list');
+      var query = { idList: list, name: name, pos: 'top' };
+      if (who) query.idMembers = who;
+      try {
+        await api('POST', '/cards', query);
+      } finally {
+        invalidate();
+      }
+      return getChores();
+    },
 
     tick: function (id, done) {
       return write(id, async function (raw, card) {

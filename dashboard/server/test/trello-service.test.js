@@ -406,3 +406,117 @@ test('setUsual(false) tolerates a 404 on a DELETE', async function () {
   var res = await t.setUsual('c1', false);
   assert.ok(res.data);
 });
+
+// ---- chores
+function choreBoard() {
+  var b = makeBoard();
+  b.lists.push({ id: 'lch', name: 'Chores' }, { id: 'lchd', name: 'Chores done' });
+  b.labels.push({ id: 'lab-u', name: 'Usual' });
+  b.members = [{ id: 'm-sat', fullName: 'Sat Bhat' }, { id: 'm-jo', fullName: 'Jo Bhat' }];
+  b.cards.push(
+    { id: 'k1', name: 'Mow', idList: 'lch', idLabels: [], idMembers: ['m-sat'], dateLastActivity: '2026-10-19T00:00:00Z' },
+    { id: 'k2', name: 'Bins', idList: 'lchd', idLabels: ['lab-u'], idMembers: [], dateLastActivity: '2026-10-19T00:00:00Z' }
+  );
+  return b;
+}
+function choresSvc(over) {
+  var f = fake(Object.assign({ board: choreBoard() }, over));
+  return { f: f, t: createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0) }) };
+}
+
+test('getChores returns chores and members', async function () {
+  var s = choresSvc();
+  var r = await s.t.getChores();
+  assert.equal(r.stale, false);
+  assert.deepEqual(r.data.members, [{ id: 'm-sat', name: 'Sat' }, { id: 'm-jo', name: 'Jo' }]);
+  assert.deepEqual(r.data.items.map(function (i) { return i.name; }), ['Mow', 'Bins']);
+});
+
+test('getChores throws when the board has no Chores list', async function () {
+  var b = choreBoard();
+  b.lists = b.lists.filter(function (l) { return l.name !== 'Chores'; });
+  await assert.rejects(choresSvc({ board: b }).t.getChores(), /no Chores list/);
+});
+
+test('tickChore moves the card between the two lists', async function () {
+  var s = choresSvc();
+  await s.t.tickChore('k1', true);
+  assert.deepEqual(s.f.writes(), [{ method: 'PUT', path: '/cards/k1', query: { idList: 'lchd', pos: 'top' } }]);
+  s.f.calls.length = 0;
+  await s.t.tickChore('k2', false);
+  assert.deepEqual(s.f.writes(), [{ method: 'PUT', path: '/cards/k2', query: { idList: 'lch', pos: 'top' } }]);
+});
+
+test('tickChore without a Chores done list errors', async function () {
+  var b = choreBoard();
+  b.lists = b.lists.filter(function (l) { return l.name !== 'Chores done'; });
+  var s = choresSvc({ board: b });
+  await assert.rejects(s.t.tickChore('k1', true), /no Chores done list/);
+  assert.equal(s.f.writes().length, 0);
+});
+
+test('setChoreWho swaps members', async function () {
+  var s = choresSvc();
+  await s.t.setChoreWho('k1', 'm-jo');
+  assert.deepEqual(s.f.writes(), [
+    { method: 'DELETE', path: '/cards/k1/idMembers/m-sat', query: {} },
+    { method: 'POST', path: '/cards/k1/idMembers', query: { value: 'm-jo' } }
+  ]);
+});
+
+test('setChoreWho with an empty id clears all members', async function () {
+  var s = choresSvc();
+  await s.t.setChoreWho('k1', '');
+  assert.deepEqual(s.f.writes(), [{ method: 'DELETE', path: '/cards/k1/idMembers/m-sat', query: {} }]);
+});
+
+test('setChoreWho to the member already on the card writes nothing', async function () {
+  var s = choresSvc();
+  await s.t.setChoreWho('k1', 'm-sat');
+  assert.equal(s.f.writes().length, 0);
+});
+
+test('setChoreWho rejects a non-member', async function () {
+  var s = choresSvc();
+  await assert.rejects(s.t.setChoreWho('k1', 'stranger'), BadRequest);
+  assert.equal(s.f.writes().length, 0);
+});
+
+test('setChoreUsual adds then removes the Usual label', async function () {
+  var s = choresSvc();
+  await s.t.setChoreUsual('k1', true);
+  assert.deepEqual(s.f.writes(), [{ method: 'POST', path: '/cards/k1/idLabels', query: { value: 'lab-u' } }]);
+  s.f.calls.length = 0;
+  await s.t.setChoreUsual('k2', false);
+  assert.deepEqual(s.f.writes(), [{ method: 'DELETE', path: '/cards/k2/idLabels/lab-u', query: {} }]);
+});
+
+test('removeChore archives the card', async function () {
+  var s = choresSvc();
+  await s.t.removeChore('k1');
+  assert.deepEqual(s.f.writes(), [{ method: 'PUT', path: '/cards/k1', query: { closed: true } }]);
+});
+
+test('addChore posts to the Chores list with the member', async function () {
+  var s = choresSvc();
+  await s.t.addChore({ name: '  Vacuum ', who: 'm-jo' });
+  assert.deepEqual(s.f.writes(), [{ method: 'POST', path: '/cards', query: { idList: 'lch', name: 'Vacuum', pos: 'top', idMembers: 'm-jo' } }]);
+  s.f.calls.length = 0;
+  await s.t.addChore({ name: 'Weed' });
+  assert.deepEqual(s.f.writes(), [{ method: 'POST', path: '/cards', query: { idList: 'lch', name: 'Weed', pos: 'top' } }]);
+});
+
+test('addChore rejects bad names and non-members', async function () {
+  var s = choresSvc();
+  await assert.rejects(s.t.addChore({ name: '   ' }), BadRequest);
+  await assert.rejects(s.t.addChore({ name: 'x'.repeat(201) }), BadRequest);
+  await assert.rejects(s.t.addChore({ name: 'Ok', who: 'stranger' }), BadRequest);
+  assert.equal(s.f.writes().length, 0);
+});
+
+test('a chore write invalidates the cache', async function () {
+  var s = choresSvc();
+  await s.t.getChores();
+  await s.t.removeChore('k1');
+  assert.equal(s.f.reads().length, 2);
+});
