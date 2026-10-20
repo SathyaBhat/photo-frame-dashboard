@@ -111,25 +111,21 @@
     return html + (more > 0 ? '<button class="h-more" data-go="calendar">+' + more + ' more</button>' : '');
   }
 
-  function ring(done, total, size) {
-    var r = size / 2 - 5, c = 2 * Math.PI * r, f = total ? done / total : 0;
-    return '<svg class="ring" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-      '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" class="ring-bg"/>' +
-      '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" class="ring-fg" stroke-dasharray="' + (c * f) + ' ' + c + '" transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')"/></svg>';
-  }
-  App.ring = ring;
-
+  // Open chores per person (then Either), from the Chores lists on the Trello board.
   function chores() {
-    var r = App.currentRoutine();
-    var who = D.people.map(function (p) { return p.id; }).concat(['any']);
-    return '<div class="label">Chores · ' + r.name + '</div><div class="h-rings">' + who.map(function (id) {
-      var list = D.chores.filter(function (c) { return c.r === r.id && c.who === id; });
-      if (!list.length) return '';
-      var done = list.filter(function (c) { return c.done; }).length;
-      var p = App.person(id);
-      return '<div class="h-ring' + (done === list.length ? ' is-done' : '') + '" style="' + App.pstyle(p) + '">' + ring(done, list.length, 64) +
-        '<b class="num">' + (done === list.length ? '✓' : done + '/' + list.length) + '</b><span>' + (id === 'any' ? 'Anyone' : p.name) + '</span></div>';
-    }).join('') + '</div>';
+    if (!D.choresLive) {
+      return '<div class="label">Chores</div><div class="h-stat"><span class="num">–</span><small>to do</small></div>' +
+        '<p class="h-shop-off">' + (D.choresOffline ? 'Can\'t reach the chore list. Trying again…' : 'No chore list yet.') + '</p>';
+    }
+    var open = D.chores.filter(function (c) { return !c.done; });
+    var known = {};
+    D.members.forEach(function (m) { known[m.id] = true; });
+    var rows = D.members.map(function (m) {
+      return { name: m.name, n: open.filter(function (c) { return c.who === m.id; }).length };
+    }).concat([{ name: 'Either', n: open.filter(function (c) { return !known[c.who]; }).length }]);
+    return '<div class="label">Chores</div><div class="h-counts">' + rows.filter(function (r) { return r.n; }).map(function (r) {
+      return '<div class="h-count"><b class="num">' + r.n + '</b><span>' + App.esc(r.name) + '</span></div>';
+    }).join('') + (open.length ? '' : '<div class="h-count"><b class="num">✓</b><span>All done</span></div>') + '</div>';
   }
 
   function shopping() {

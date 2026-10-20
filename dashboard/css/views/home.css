@@ -92,12 +92,6 @@
 .h-photo-cap span { font-family: var(--serif); font-size: 20px; font-style: italic; }
 
 .h-chores { display: flex; flex-direction: column; gap: 8px; }
-.h-rings { display: flex; justify-content: space-between; }
-.h-ring { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.h-ring .num { position: absolute; top: 0; left: 0; width: 64px; height: 64px; display: grid; place-items: center; font-size: 20px; }
-.h-ring span { font-size: var(--fs-min); font-weight: 700; color: var(--ink-2); }
-.h-ring.is-done .ring-bg { fill: var(--c); }
-.h-ring.is-done .num { color: var(--c-ink); }
 
 .h-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .h-shop, .h-status { display: flex; flex-direction: column; gap: 4px; }
@@ -106,6 +100,10 @@
 .h-stat small { font-size: 16px; color: var(--mute); }
 .h-recent li { font-size: 16px; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; line-height: 1.35; }
 .h-recent i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); flex: none; }
+.h-counts { display: flex; justify-content: space-between; gap: 12px; }
+.h-count { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.h-count .num { font-size: 44px; line-height: .95; }
+.h-count span { font-size: var(--fs-min); font-weight: 700; color: var(--ink-2); }
 .h-shop-off { font-size: 16px; line-height: 1.35; color: var(--mute); }
 .h-st-row { display: flex; align-items: center; gap: 8px; font-size: 17px; min-height: 30px; }
 .h-st-row b { font-size: 24px; }
