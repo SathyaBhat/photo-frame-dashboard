@@ -55,8 +55,10 @@ the regular ones, backed by Trello.
 
 - The done list is named `Chores done`. If it doesn't exist on the board, ticking can't work; the
   server answers with an error rather than creating lists. (The owner creates the two lists.)
-- The assign button cycles: nobody → member 1 → member 2 → nobody. Members are shown by first name
-  (Trello `fullName`, first word), ordered by Trello's member order.
+- The assign button on a row opens a small popup (owner's request) listing each board member and
+  "Either", with the current one marked. One tap picks and closes it; tapping outside closes it
+  without a change. Members are shown by first name (Trello `fullName`, first word), ordered by
+  Trello's member order.
 - Open chores are grouped by assignee: one group per member, then "Either". Empty groups are hidden.
 - The Done drawer shows chores ticked in the last 24 h, as groceries do. Usuals always keep a tile.
 - Removing a chore = archiving the card in Trello (`closed: true`) from a "Remove" action on the row.
@@ -72,7 +74,7 @@ the regular ones, backed by Trello.
   Done usuals stay in Chores done for good; only non-usual done cards age out of the drawer.
 - `at` is the card's `dateLastActivity`, as for groceries; the Done drawer window uses it.
 - A card with several members, or members who aren't board members, shows under the first known
-  board member (else "Either"). Cycling the assign button sets exactly the chosen member and removes
+  board member (else "Either"). Picking in the assign popup sets exactly the chosen member and removes
   the others on that card.
 - Missing lists: `GET /api/chores` with no Chores list answers 502 (so the screen shows "Can't reach");
   with no Chores done list it still works but ticking answers an error. If several lists match a name,
