@@ -193,10 +193,11 @@
       (dueTime(c) !== null ? '<button class="c-pop-opt" data-setdue="" data-for="' + id + '">No date</button>' : '');
     V.el.appendChild(p);
     var b = btn.getBoundingClientRect(), host = V.el.getBoundingClientRect();
-    var h = p.offsetHeight, top = b.bottom - host.top + 6;
+    p.style.left = '0px'; // measure at a known spot, then centre it under the icon
+    var h = p.offsetHeight, w = p.offsetWidth, top = b.bottom - host.top + 6;
     if (top + h > host.height) top = Math.max(0, b.top - host.top - h - 6);
     p.style.top = top + 'px';
-    p.style.left = Math.max(0, Math.min(b.right - host.left - p.offsetWidth, host.width - p.offsetWidth)) + 'px';
+    p.style.left = Math.max(0, Math.min(b.left + b.width / 2 - host.left - w / 2, host.width - w)) + 'px';
   }
 
   // ---- writes. Serialised, so an undo can't overtake the tick it undoes; each queued write holds App.choresBusy so a
