@@ -36,11 +36,22 @@
     return out;
   }
 
+  // "Today", "Tomorrow", else "Fri 24 Oct"; empty without a due date or once it is marked complete.
+  function dueText(c) {
+    var t = Date.parse(c.due);
+    if (c.dueComplete || isNaN(t)) return '';
+    var d = new Date(t), now = App.now();
+    var days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / DAY);
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Tomorrow';
+    return d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
   function row(c) {
-    var id = App.esc(c.id);
+    var id = App.esc(c.id), due = dueText(c);
     return '<div class="s-row' + (c._tmp ? ' is-saving' : '') + '" data-id="' + id + '">' +
       '<button class="s-hit" data-check="' + id + '"><span class="s-box">' + App.icon('check', 22) + '</span>' +
-      '<span class="s-name"><b>' + App.esc(c.name) + '</b></span></button>' +
+      '<span class="s-name"><b>' + App.esc(c.name) + '</b>' + (due ? '<small>' + App.esc(due) + '</small>' : '') + '</span></button>' +
       '<button class="s-lowbtn c-assign' + (c.who ? ' is-on' : '') + '" data-assign="' + id + '">' + App.esc(memberName(c.who)) + '</button>' +
       '<button class="c-remove" data-remove="' + id + '" aria-label="Remove">' + App.icon('x', 24) + '</button>' +
       '</div>';

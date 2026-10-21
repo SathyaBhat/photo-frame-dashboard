@@ -231,11 +231,20 @@ function chore(r, name) { return r.items.filter(function (i) { return i.name ===
 test('buildChores maps open and done cards and members', function () {
   var r = buildChores(choreBoard());
   assert.deepEqual(r.members, [{ id: 'm-sat', name: 'Sat' }, { id: 'm-jo', name: 'Jo' }]);
-  assert.deepEqual(chore(r, 'Mow'), { id: 'c1', name: 'Mow', who: 'm-jo', usual: true, done: false, at: '2026-10-19T00:00:00Z' });
+  assert.deepEqual(chore(r, 'Mow'), { id: 'c1', name: 'Mow', who: 'm-jo', usual: true, done: false, due: '', dueComplete: false, at: '2026-10-19T00:00:00Z' });
   assert.equal(chore(r, 'Bins').done, true);
   assert.equal(chore(r, 'Weeds').who, '');
   assert.equal(chore(r, 'Gone'), undefined);
   assert.equal(chore(r, 'Milk'), undefined);
+});
+
+test('buildChores carries the due date and whether it is complete', function () {
+  var b = choreBoard();
+  b.cards[0].due = '2026-10-24T02:00:00.000Z';
+  b.cards[0].dueComplete = true;
+  var c = chore(buildChores(b), 'Mow');
+  assert.equal(c.due, '2026-10-24T02:00:00.000Z');
+  assert.equal(c.dueComplete, true);
 });
 
 test('buildChores: unknown or several members resolve to the first known one', function () {

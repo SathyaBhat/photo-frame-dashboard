@@ -97,7 +97,7 @@ export function buildChores(board) {
   function toChore(card, done) {
     var who = (card.idMembers || []).filter(function (id) { return known[id]; })[0] || '';
     var usual = (card.idLabels || []).some(function (id) { return isUsualName(labelsById[id]); });
-    return { id: card.id, name: card.name, who: who, usual: usual, done: done, at: card.dateLastActivity };
+    return { id: card.id, name: card.name, who: who, usual: usual, done: done, due: card.due || '', dueComplete: !!card.dueComplete, at: card.dateLastActivity };
   }
 
   var open = (board.cards || []).filter(function (c) { return !c.closed; });
