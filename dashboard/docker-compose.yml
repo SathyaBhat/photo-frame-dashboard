@@ -45,6 +45,8 @@ services:
       - TRELLO_API_KEY=${TRELLO_API_KEY:-}
       - TRELLO_TOKEN=${TRELLO_TOKEN:-}
       - TRELLO_BOARD=${TRELLO_BOARD:-}
+      # Comma-separated first names to leave out of the chore assignees (optional).
+      - CHORES_HIDE_MEMBERS=${CHORES_HIDE_MEMBERS:-}
     networks:
       - dokploy-network
     labels:
