@@ -157,6 +157,18 @@
     var p = V.el && V.el.querySelector('.c-pop');
     if (p) p.parentNode.removeChild(p);
   }
+  // Under the button: right-aligned with it, or centred on it. The stage is scaled to fit the screen, so
+  // getBoundingClientRect() is in screen pixels while top/left are in stage pixels: divide by the scale.
+  function place(p, btn, centre) {
+    var b = btn.getBoundingClientRect(), host = V.el.getBoundingClientRect();
+    var k = host.width / V.el.offsetWidth || 1, hw = V.el.offsetWidth, hh = V.el.offsetHeight;
+    var w = p.offsetWidth, h = p.offsetHeight;
+    var top = (b.bottom - host.top) / k + 6;
+    if (top + h > hh) top = Math.max(0, (b.top - host.top) / k - h - 6);
+    var left = centre ? (b.left + b.width / 2 - host.left) / k - w / 2 : (b.right - host.left) / k - w;
+    p.style.top = top + 'px';
+    p.style.left = Math.max(0, Math.min(left, hw - w)) + 'px';
+  }
   function openPop(btn, c) {
     closePop();
     V.popup = c.id; V.kind = 'who';
@@ -167,11 +179,7 @@
       return '<button class="c-pop-opt' + (o[0] === c.who || (!o[0] && !c.who) ? ' is-on' : '') + '" data-who="' + App.esc(o[0]) + '" data-for="' + App.esc(c.id) + '">' + App.esc(o[1]) + '</button>';
     }).join('');
     V.el.appendChild(p);
-    var b = btn.getBoundingClientRect(), host = V.el.getBoundingClientRect();
-    var h = p.offsetHeight, top = b.bottom - host.top + 6;
-    if (top + h > host.height) top = Math.max(0, b.top - host.top - h - 6);
-    p.style.top = top + 'px';
-    p.style.left = Math.max(0, Math.min(b.right - host.left - p.offsetWidth, host.width - p.offsetWidth)) + 'px';
+    place(p, btn, false);
   }
 
   // ---- due popup: quick dates, a native date picker, or no date
@@ -192,12 +200,7 @@
       '<label class="c-pop-opt c-pop-date">Pick a date<input type="date" data-pickdue="' + id + '"></label>' +
       (dueTime(c) !== null ? '<button class="c-pop-opt" data-setdue="" data-for="' + id + '">No date</button>' : '');
     V.el.appendChild(p);
-    var b = btn.getBoundingClientRect(), host = V.el.getBoundingClientRect();
-    p.style.left = '0px'; // measure at a known spot, then centre it under the icon
-    var h = p.offsetHeight, w = p.offsetWidth, top = b.bottom - host.top + 6;
-    if (top + h > host.height) top = Math.max(0, b.top - host.top - h - 6);
-    p.style.top = top + 'px';
-    p.style.left = Math.max(0, Math.min(b.left + b.width / 2 - host.left - w / 2, host.width - w)) + 'px';
+    place(p, btn, true);
   }
 
   // ---- writes. Serialised, so an undo can't overtake the tick it undoes; each queued write holds App.choresBusy so a
