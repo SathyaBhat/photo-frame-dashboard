@@ -22,6 +22,23 @@ Plan: `docs/superpowers/plans/2026-10-17-family-agenda.md`. Most useful first.
 - [ ] **Dead fallback in `calendar-map.js`.** `i.end ||` never runs because node-ical always fills `end`; a
       timed event with no DTEND gets zero length, not the intended 1 h. Fix the code or the comment.
 
+## Chores from Trello (deferred from the final review, 2026-10-20)
+
+Plan: `docs/superpowers/plans/2026-10-20-trello-chores.md`. Most useful first.
+
+- [ ] **Check the Chores screen on the iPad and the frame.** It was built without a browser, so the screen has
+      never been seen running. Add, assign (popup), tick, add back from Done, Usual tiles, remove. The frame
+      needs a reload, which is a write on the frame: ask first.
+- [ ] **Remove has no undo.** The 60 px X sits next to the assign button, so a stray tap archives the card
+      (recoverable from Trello's archive). Add an undo toast, as ticking has.
+- [ ] **The assign popup stays put when the list scrolls.** Close it on the list's `scroll` event (take care that
+      `paintList` restoring `scrollTop` does not close a popup that `repaint` just reopened).
+- [ ] **Chore copy.** "No chore list yet." also shows before the first poll answers (the plan said "Chores aren't
+      set up" for a 503); the Home chores card shows no note when the data is live but stale; the header label
+      reads "Shared list".
+- [ ] **Unused CSS.** `.ring-bg` / `.ring-fg` in `css/base.css` are no longer used.
+- [ ] **Popup lists all three board members** (Jyothsna, Navali, sathyabhat). Limit it to two if wanted.
+
 ## Known limits (accepted in the spec)
 
 - The Calendar view (day, week, month) only has the next 7 days once real data loads: nothing earlier.
