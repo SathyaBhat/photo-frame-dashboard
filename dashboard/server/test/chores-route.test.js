@@ -9,7 +9,7 @@ var RESULT = { data: { items: [{ id: ID }], members: [{ id: 'm1', name: 'Sat' }]
 function fakeTrello(over) {
   var calls = [];
   var t = { calls: calls };
-  ['getChores', 'tickChore', 'setChoreUsual', 'setChoreWho', 'removeChore', 'addChore'].forEach(function (k) {
+  ['getChores', 'tickChore', 'setChoreUsual', 'setChoreWho', 'setChoreDue', 'removeChore', 'addChore'].forEach(function (k) {
     t[k] = async function () { calls.push([k].concat([].slice.call(arguments))); return RESULT; };
   });
   return Object.assign(t, over || {});
@@ -55,6 +55,8 @@ test('each edit field goes to its method', async function () {
     [{ usual: false }, ['setChoreUsual', ID, false]],
     [{ who: 'm1' }, ['setChoreWho', ID, 'm1']],
     [{ who: '' }, ['setChoreWho', ID, '']],
+    [{ due: '2026-10-30T02:00:00.000Z' }, ['setChoreDue', ID, '2026-10-30T02:00:00.000Z']],
+    [{ due: '' }, ['setChoreDue', ID, '']],
     [{ closed: true }, ['removeChore', ID]]
   ];
   for (var i = 0; i < cases.length; i++) {
@@ -66,7 +68,7 @@ test('each edit field goes to its method', async function () {
 });
 
 test('bad edits are 400', async function () {
-  var bodies = [{ closed: false }, { done: true, usual: true }, {}, { done: 'yes' }, { who: 1 }, { nope: true }, null];
+  var bodies = [{ closed: false }, { done: true, usual: true }, {}, { done: 'yes' }, { who: 1 }, { due: 5 }, { nope: true }, null];
   for (var i = 0; i < bodies.length; i++) {
     assert.equal((await call(fakeTrello(), 'POST', '/api/chores/' + ID, bodies[i])).status, 400);
   }

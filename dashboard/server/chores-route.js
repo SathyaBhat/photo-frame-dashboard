@@ -8,9 +8,10 @@ function reply(send, res, r) {
 async function edit(trello, id, body) {
   var keys = Object.keys(body || {});
   var k = keys[0], v = body && body[k];
-  var ok = keys.length === 1 && ((k === 'done' || k === 'usual') && typeof v === 'boolean' || k === 'who' && typeof v === 'string' || k === 'closed' && v === true);
-  if (!ok) throw new BadRequest('body needs exactly one of done, usual (boolean), who (string), closed (true)');
+  var ok = keys.length === 1 && ((k === 'done' || k === 'usual') && typeof v === 'boolean' || (k === 'who' || k === 'due') && typeof v === 'string' || k === 'closed' && v === true);
+  if (!ok) throw new BadRequest('body needs exactly one of done, usual (boolean), who (string), due (ISO string or empty), closed (true)');
   if (k === 'done') return trello.tickChore(id, v);
+  if (k === 'due') return trello.setChoreDue(id, v); // an empty string clears it
   if (k === 'usual') return trello.setChoreUsual(id, v);
   if (k === 'who') return trello.setChoreWho(id, v); // an empty string means either of them
   return trello.removeChore(id);

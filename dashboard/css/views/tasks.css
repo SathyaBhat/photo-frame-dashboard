@@ -9,3 +9,9 @@
 .c-pop-opt { min-height: 64px; padding: 0 20px; border-radius: 12px; font-size: 22px; font-weight: 700; text-align: left; }
 .c-pop-opt:active { background: var(--line); }
 .c-pop-opt.is-on { background: var(--ink); color: var(--paper); }
+
+.c-due { flex: none; width: 60px; height: 60px; margin-left: 4px; display: grid; place-items: center; border-radius: 50%; color: var(--mute); }
+.c-due:active { background: var(--line); }
+.c-due.is-on { color: var(--ink); }
+.c-pop-date { position: relative; display: flex; align-items: center; }
+.c-pop-date input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }

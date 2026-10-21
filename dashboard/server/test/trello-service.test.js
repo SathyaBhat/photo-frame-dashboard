@@ -482,6 +482,24 @@ test('setChoreWho rejects a non-member', async function () {
   assert.equal(s.f.writes().length, 0);
 });
 
+test('setChoreDue sets and clears the due date and reopens it', async function () {
+  var s = choresSvc();
+  await s.t.setChoreDue('k1', '2026-10-30T02:00:00Z');
+  assert.deepEqual(s.f.writes(), [{ method: 'PUT', path: '/cards/k1', query: { due: '2026-10-30T02:00:00.000Z', dueComplete: false } }]);
+  s.f.calls.length = 0;
+  await s.t.setChoreDue('k1', '');
+  assert.deepEqual(s.f.writes(), [{ method: 'PUT', path: '/cards/k1', query: { due: 'null', dueComplete: false } }]);
+  await assert.rejects(s.t.setChoreDue('k1', 'soon'), BadRequest);
+});
+
+test('hideMembers drops a member from the chores members and assignees', async function () {
+  var f = fake({ board: choreBoard() });
+  var t = createTrello({ key: 'k', token: 't', board: 'b1', fetchJSON: f, clock: clock(T0), hideMembers: ['sat'] });
+  var r = await t.getChores();
+  assert.deepEqual(r.data.members, [{ id: 'm-jo', name: 'Jo' }]);
+  assert.equal(r.data.items.filter(function (i) { return i.name === 'Mow'; })[0].who, '');
+});
+
 test('setChoreUsual adds then removes the Usual label', async function () {
   var s = choresSvc();
   await s.t.setChoreUsual('k1', true);

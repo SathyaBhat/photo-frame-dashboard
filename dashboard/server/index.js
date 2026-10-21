@@ -44,7 +44,7 @@ async function bom(path, optional) {
 }
 
 var calendar = GCAL_ICS_URL ? createCalendar({ url: GCAL_ICS_URL, fetchText: fetchFeed }) : null;
-var trello = TRELLO_KEY && TRELLO_TOKEN && TRELLO_BOARD ? createTrello({ key: TRELLO_KEY, token: TRELLO_TOKEN, board: TRELLO_BOARD }) : null;
+var trello = TRELLO_KEY && TRELLO_TOKEN && TRELLO_BOARD ? createTrello({ key: TRELLO_KEY, token: TRELLO_TOKEN, board: TRELLO_BOARD, hideMembers: (process.env.CHORES_HIDE_MEMBERS || '').split(',').filter(Boolean) }) : null;
 
 var location; // timezone rarely changes; fetch once
 async function fetchWeather() {

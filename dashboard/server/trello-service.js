@@ -39,7 +39,7 @@ function checkStore(store) {
   if (typeof store !== 'string' || store.length > 40 || /[\u0000-\u001f\u007f]/.test(store)) throw new BadRequest('invalid store');
 }
 
-export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
+export function createTrello({ key, token, board, fetchJSON, ttlMs, clock, hideMembers }) {
   var ttl = ttlMs === undefined ? 30 * 1000 : ttlMs;
   var nowMs = clock || Date.now;
   var api = fetchJSON || defaultFetchJSON(key, token);
@@ -175,7 +175,7 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
 
   async function getChores() {
     var r = await get();
-    return { data: buildChores(r.raw), stale: r.stale, at: r.at };
+    return { data: buildChores(r.raw, hideMembers), stale: r.stale, at: r.at };
   }
 
   async function writeChore(id, fn) {
@@ -219,6 +219,14 @@ export function createTrello({ key, token, board, fetchJSON, ttlMs, clock }) {
           }
         }
         if (who && mine.indexOf(who) < 0) await api('POST', '/cards/' + id + '/idMembers', { value: who });
+      });
+    },
+
+    // due is an ISO timestamp, or '' to clear it. A date change also reopens the due-complete flag.
+    setChoreDue: async function (id, due) {
+      if (typeof due !== 'string' || (due && isNaN(Date.parse(due)))) throw new BadRequest('invalid due');
+      return writeChore(id, async function () {
+        await api('PUT', '/cards/' + id, { due: due ? new Date(due).toISOString() : 'null', dueComplete: false });
       });
     },
 

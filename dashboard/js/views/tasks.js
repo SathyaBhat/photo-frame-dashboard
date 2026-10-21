@@ -47,12 +47,24 @@
     return d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
+  function dueTime(c) { var t = c.dueComplete ? NaN : Date.parse(c.due); return isNaN(t) ? null : t; }
+  // No date first, then the closest due first; same-date chores keep their list order.
+  function byDue(items) {
+    return items.map(function (c, i) { return { c: c, i: i, t: dueTime(c) }; }).sort(function (a, b) {
+      if (a.t === b.t) return a.i - b.i;
+      if (a.t === null) return -1;
+      if (b.t === null) return 1;
+      return a.t - b.t || a.i - b.i;
+    }).map(function (x) { return x.c; });
+  }
+
   function row(c) {
     var id = App.esc(c.id), due = dueText(c);
     return '<div class="s-row' + (c._tmp ? ' is-saving' : '') + '" data-id="' + id + '">' +
       '<button class="s-hit" data-check="' + id + '"><span class="s-box">' + App.icon('check', 22) + '</span>' +
       '<span class="s-name"><b>' + App.esc(c.name) + '</b>' + (due ? '<small>' + App.esc(due) + '</small>' : '') + '</span></button>' +
       '<button class="s-lowbtn c-assign' + (c.who ? ' is-on' : '') + '" data-assign="' + id + '">' + App.esc(memberName(c.who)) + '</button>' +
+      '<button class="c-due' + (due ? ' is-on' : '') + '" data-due="' + id + '" aria-label="Set due date">' + App.icon('calendar', 24) + '</button>' +
       '<button class="c-remove" data-remove="' + id + '" aria-label="Remove">' + App.icon('x', 24) + '</button>' +
       '</div>';
   }
@@ -62,10 +74,10 @@
       return '<div class="s-empty serif">' + (D.choresOffline ? 'Can\'t reach the chore list.<br><i>Trying again…</i>' : 'No chore list yet.') + '</div>';
     }
     var items = open();
-    var groups = D.members.map(function (m) { return { name: m.name, items: items.filter(function (c) { return c.who === m.id; }) }; });
+    var groups = D.members.map(function (m) { return { name: m.name, items: byDue(items.filter(function (c) { return c.who === m.id; })) }; });
     var known = {};
     D.members.forEach(function (m) { known[m.id] = true; });
-    groups.push({ name: 'Either', items: items.filter(function (c) { return !known[c.who]; }) });
+    groups.push({ name: 'Either', items: byDue(items.filter(function (c) { return !known[c.who]; })) });
     groups = groups.filter(function (g) { return g.items.length; });
     var d = gotIt();
     return (items.length ? groups.map(function (g) {
@@ -109,13 +121,13 @@
   }
   function paintList() { var l = V.el.querySelector('.s-list'); var st = l.scrollTop; closePop(); l.innerHTML = listHTML(); l.scrollTop = st; paintHead(); }
   function paintSuggest() { V.el.querySelector('.s-suggest').innerHTML = suggestHTML(); }
-  // Background refresh: keep the assign popup open if its chore is still there.
+  // Background refresh: keep the assign or due popup open if its chore is still there.
   function repaint() {
     if (!V.el || !V.el.querySelector('.s-list')) return;
-    var pid = V.popup;
+    var pid = V.popup, due = V.kind === 'due';
     paintList(); paintSuggest();
-    var c = pid && byId(pid), b = c && byData('.s-list [data-assign]', 'assign', pid);
-    if (c && b) openPop(b, c);
+    var c = pid && byId(pid), b = c && (due ? byData('.s-list [data-due]', 'due', pid) : byData('.s-list [data-assign]', 'assign', pid));
+    if (c && b) (due ? openDuePop : openPop)(b, c);
   }
   function flash(c) {
     var r = byData('.s-list .s-row', 'id', c.id);
@@ -147,13 +159,38 @@
   }
   function openPop(btn, c) {
     closePop();
-    V.popup = c.id;
+    V.popup = c.id; V.kind = 'who';
     var opts = D.members.map(function (m) { return [m.id, m.name]; }).concat([['', 'Either']]);
     var p = document.createElement('div');
     p.className = 'c-pop';
     p.innerHTML = opts.map(function (o) {
       return '<button class="c-pop-opt' + (o[0] === c.who || (!o[0] && !c.who) ? ' is-on' : '') + '" data-who="' + App.esc(o[0]) + '" data-for="' + App.esc(c.id) + '">' + App.esc(o[1]) + '</button>';
     }).join('');
+    V.el.appendChild(p);
+    var b = btn.getBoundingClientRect(), host = V.el.getBoundingClientRect();
+    var h = p.offsetHeight, top = b.bottom - host.top + 6;
+    if (top + h > host.height) top = Math.max(0, b.top - host.top - h - 6);
+    p.style.top = top + 'px';
+    p.style.left = Math.max(0, Math.min(b.right - host.left - p.offsetWidth, host.width - p.offsetWidth)) + 'px';
+  }
+
+  // ---- due popup: quick dates, a native date picker, or no date
+  function dayISO(offset) {
+    var n = App.now();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate() + offset, 12).toISOString();
+  }
+  function openDuePop(btn, c) {
+    closePop();
+    V.popup = c.id; V.kind = 'due';
+    var id = App.esc(c.id);
+    var opts = [['Today', dayISO(0)], ['Tomorrow', dayISO(1)], ['Next week', dayISO(7)]];
+    var p = document.createElement('div');
+    p.className = 'c-pop';
+    p.innerHTML = opts.map(function (o) {
+      return '<button class="c-pop-opt" data-setdue="' + o[1] + '" data-for="' + id + '">' + o[0] + '</button>';
+    }).join('') +
+      '<label class="c-pop-opt c-pop-date">Pick a date<input type="date" data-pickdue="' + id + '"></label>' +
+      (dueTime(c) !== null ? '<button class="c-pop-opt" data-setdue="" data-for="' + id + '">No date</button>' : '');
     V.el.appendChild(p);
     var b = btn.getBoundingClientRect(), host = V.el.getBoundingClientRect();
     var h = p.offsetHeight, top = b.bottom - host.top + 6;
@@ -257,6 +294,16 @@
     App.emit('data');
   }
 
+  function setDue(c, due) {
+    if (saving(c)) return;
+    var was = { due: c.due, dueComplete: c.dueComplete }, id = c.id;
+    c.due = due;
+    c.dueComplete = false;
+    write('chores/' + id, { due: due }, function () { var cur = byId(id); if (cur) { cur.due = was.due; cur.dueComplete = was.dueComplete; } });
+    paintList();
+    App.emit('data');
+  }
+
   function remove(c) {
     if (saving(c)) return;
     var id = c.id, name = c.name;
@@ -269,8 +316,20 @@
 
   function onClick(e) {
     var t;
-    if (V.popup && !e.target.closest('.c-pop') && !e.target.closest('[data-assign]')) closePop();
+    if (V.popup && !e.target.closest('.c-pop') && !e.target.closest('[data-assign]') && !e.target.closest('[data-due]')) closePop();
     if (!live()) return;
+    if ((t = e.target.closest('[data-setdue]'))) {
+      var dc = byId(t.dataset.for);
+      closePop();
+      if (dc) setDue(dc, t.dataset.setdue);
+      return;
+    }
+    if ((t = e.target.closest('[data-due]'))) {
+      var uc = byId(t.dataset.due);
+      if (V.popup === t.dataset.due) return closePop();
+      if (uc && !saving(uc)) openDuePop(t, uc);
+      return;
+    }
     if ((t = e.target.closest('[data-who]'))) {
       var pc = byId(t.dataset.for);
       closePop();
@@ -312,7 +371,17 @@
 
   App.register('tasks', {
     show: function (el, opts) {
-      if (!V.el) { V.el = el; el.addEventListener('click', onClick); }
+      if (!V.el) {
+        V.el = el;
+        el.addEventListener('click', onClick);
+        el.addEventListener('change', function (e) {
+          var t = e.target.closest && e.target.closest('[data-pickdue]');
+          var m = t && /^(\d{4})-(\d{2})-(\d{2})$/.exec(t.value);
+          var pc = t && byId(t.dataset.pickdue);
+          closePop();
+          if (m && pc) setDue(pc, new Date(+m[1], +m[2] - 1, +m[3], 12).toISOString());
+        });
+      }
       // A data refresh repaints in place, so it doesn't close the keyboard mid-word.
       if (opts && opts.rerender && V.el.querySelector('.s-list')) { V.renders++; return repaint(); }
       render();

@@ -81,14 +81,15 @@ export function buildGroceries(input) {
 }
 
 // Chores: cards in the Chores list are open, cards in Chores done are done. The assignee is the first of the
-// card's members that belongs to the board; a card nobody (known) is on is for either of them.
-export function buildChores(board) {
+// card's members that belongs to the board (and is not hidden); a card nobody (known) is on is for either of them.
+export function buildChores(board, hide) {
   var ids = resolveIds(board);
   if (!ids.chores) throw new Error('no Chores list');
+  var hidden = (hide || []).map(function (n) { return String(n).trim().toLowerCase(); });
   var members = (board.members || []).map(function (m) {
     var full = String(m.fullName || '').trim();
     return { id: m.id, name: full.split(/\s+/)[0] || full };
-  });
+  }).filter(function (m) { return hidden.indexOf(m.name.toLowerCase()) < 0; });
   var known = {};
   members.forEach(function (m) { known[m.id] = true; });
   var labelsById = {};
