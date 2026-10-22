@@ -124,8 +124,9 @@
   // Background refresh: keep the assign or due popup open if its chore is still there.
   function repaint() {
     if (!V.el || !V.el.querySelector('.s-list')) return;
-    var pid = V.popup, due = V.kind === 'due';
+    var pid = V.popup, due = V.kind === 'due', cal = V.cal;
     paintList(); paintSuggest();
+    V.cal = cal;
     var c = pid && byId(pid), b = c && (due ? byData('.s-list [data-due]', 'due', pid) : byData('.s-list [data-assign]', 'assign', pid));
     if (c && b) (due ? openDuePop : openPop)(b, c);
   }
@@ -153,7 +154,7 @@
 
   // ---- assign popup: one at a time, anchored under the row's button
   function closePop() {
-    V.popup = null;
+    V.popup = null; V.cal = null;
     var p = V.el && V.el.querySelector('.c-pop');
     if (p) p.parentNode.removeChild(p);
   }
@@ -187,20 +188,46 @@
     var n = App.now();
     return new Date(n.getFullYear(), n.getMonth(), n.getDate() + offset, 12).toISOString();
   }
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  // A month grid (Monday first) in place of the native date picker, which closes itself on the iPad and is untested on the frame.
+  function calHTML(c) {
+    var y = V.cal.y, m = V.cal.m, now = App.now();
+    var lead = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+    var cur = dueTime(c) !== null ? new Date(dueTime(c)) : null;
+    var cells = '<span class="c-cal-dow">Mon</span><span class="c-cal-dow">Tue</span><span class="c-cal-dow">Wed</span><span class="c-cal-dow">Thu</span><span class="c-cal-dow">Fri</span><span class="c-cal-dow">Sat</span><span class="c-cal-dow">Sun</span>';
+    for (var i = 0; i < lead; i++) cells += '<span></span>';
+    for (var d = 1; d <= days; d++) {
+      var today = y === now.getFullYear() && m === now.getMonth() && d === now.getDate();
+      var on = cur && y === cur.getFullYear() && m === cur.getMonth() && d === cur.getDate();
+      cells += '<button class="c-cal-day' + (today ? ' is-today' : '') + (on ? ' is-on' : '') + '" data-setdue="' + new Date(y, m, d, 12).toISOString() + '" data-for="' + App.esc(c.id) + '">' + d + '</button>';
+    }
+    return '<div class="c-cal-head"><button class="c-cal-nav" data-cal="prev" aria-label="Previous month">' + App.icon('left', 24) + '</button>' +
+      '<b>' + MONTHS[m] + ' ' + y + '</b><button class="c-cal-nav" data-cal="next" aria-label="Next month">' + App.icon('right', 24) + '</button></div>' +
+      '<div class="c-cal-grid">' + cells + '</div>';
+  }
   function openDuePop(btn, c) {
+    var cal = V.cal;
     closePop();
-    V.popup = c.id; V.kind = 'due';
+    V.popup = c.id; V.kind = 'due'; V.cal = cal;
     var id = App.esc(c.id);
     var opts = [['Today', dayISO(0)], ['Tomorrow', dayISO(1)], ['Next week', dayISO(7)]];
     var p = document.createElement('div');
-    p.className = 'c-pop';
-    p.innerHTML = opts.map(function (o) {
+    p.className = 'c-pop' + (cal ? ' c-pop--cal' : '');
+    p.innerHTML = cal ? calHTML(c) : opts.map(function (o) {
       return '<button class="c-pop-opt" data-setdue="' + o[1] + '" data-for="' + id + '">' + o[0] + '</button>';
     }).join('') +
-      '<label class="c-pop-opt c-pop-date">Pick a date<input type="date" data-pickdue="' + id + '"></label>' +
+      '<button class="c-pop-opt" data-cal="open" data-for="' + id + '">Pick a date</button>' +
       (dueTime(c) !== null ? '<button class="c-pop-opt" data-setdue="" data-for="' + id + '">No date</button>' : '');
     V.el.appendChild(p);
     place(p, btn, true);
+  }
+  function calStep(id, step) {
+    var c = byId(id), btn = c && byData('.s-list [data-due]', 'due', id);
+    if (!c || !btn) return;
+    var base = V.cal || (function () { var d = dueTime(c) !== null ? new Date(dueTime(c)) : App.now(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+    var d = new Date(base.y, base.m + step, 1);
+    V.cal = { y: d.getFullYear(), m: d.getMonth() };
+    openDuePop(btn, c);
   }
 
   // ---- writes. Serialised, so an undo can't overtake the tick it undoes; each queued write holds App.choresBusy so a
@@ -322,6 +349,11 @@
     var t;
     if (V.popup && !e.target.closest('.c-pop') && !e.target.closest('[data-assign]') && !e.target.closest('[data-due]')) closePop();
     if (!live()) return;
+    if ((t = e.target.closest('[data-cal]'))) {
+      var id = t.dataset.for || V.popup;
+      if (t.dataset.cal === 'open') V.cal = null;
+      return calStep(id, t.dataset.cal === 'prev' ? -1 : t.dataset.cal === 'next' ? 1 : 0);
+    }
     if ((t = e.target.closest('[data-setdue]'))) {
       var dc = byId(t.dataset.for);
       closePop();
@@ -378,13 +410,6 @@
       if (!V.el) {
         V.el = el;
         el.addEventListener('click', onClick);
-        el.addEventListener('change', function (e) {
-          var t = e.target.closest && e.target.closest('[data-pickdue]');
-          var m = t && /^(\d{4})-(\d{2})-(\d{2})$/.exec(t.value);
-          var pc = t && byId(t.dataset.pickdue);
-          closePop();
-          if (m && pc) setDue(pc, new Date(+m[1], +m[2] - 1, +m[3], 12).toISOString());
-        });
       }
       // A data refresh repaints in place, so it doesn't close the keyboard mid-word.
       if (opts && opts.rerender && V.el.querySelector('.s-list')) { V.renders++; return repaint(); }
