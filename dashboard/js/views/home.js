@@ -184,7 +184,7 @@
       if (!el.firstChild) {
         el.innerHTML = '<div class="home">' +
           '<div class="h-clock" data-go="calendar"></div>' +
-          '<div class="h-weather"></div>' +
+          '<button class="h-weather" data-go="weather"></button>' +
           '<div class="h-presence"></div>' +
           '<div class="h-main"><div class="h-hero-slot"></div><div class="h-agenda"></div></div>' +
           '<div class="h-side">' +

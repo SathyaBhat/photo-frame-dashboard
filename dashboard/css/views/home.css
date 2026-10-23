@@ -15,7 +15,7 @@
 .h-date b { font-family: var(--sans); font-weight: 800; font-stretch: 75%; text-transform: uppercase; letter-spacing: .06em; font-size: 20px; margin-right: 6px; }
 
 /* ---- weather */
-.h-weather { grid-column: 5 / 10; border-bottom: 3px solid var(--ink); padding: 0 8px 6px; display: flex; flex-direction: column; justify-content: flex-end; }
+.h-weather { grid-column: 5 / 10; text-align: left; width: 100%; border-bottom: 3px solid var(--ink); padding: 0 8px 6px; display: flex; flex-direction: column; justify-content: flex-end; }
 .h-wx-top { display: flex; align-items: center; gap: 12px; }
 .h-wx-icon { color: var(--ink); }
 .h-wx-temp { font-size: 84px; line-height: .8; letter-spacing: -.03em; }

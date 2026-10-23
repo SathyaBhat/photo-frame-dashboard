@@ -13,6 +13,7 @@ import './views/shopping.js';
 import './views/photos.js';
 import './views/control.js';
 import './views/energy.js';
+import './views/weather.js';
 import './views/settings.js';
 import './views/ambient.js';
 import './diag.js';
