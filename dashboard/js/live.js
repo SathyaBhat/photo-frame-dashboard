@@ -274,16 +274,19 @@
 
   // Deploy detection: version.json is rewritten on every build. When it differs from the id this
   // page was built with, reload, but only once nobody has touched the screen for a while.
+  // The frame's page also froze for good about 2 h 39 min after loading, so reload it every 2 h too.
   var BUILD = typeof __BUILD_ID__ === 'undefined' ? null : __BUILD_ID__;
-  var newBuild = false;
+  var LOADED = Date.now(), MAX_AGE_MS = 2 * 3600 * 1000;
+  var reloadDue = false;
   function checkVersion() {
     if (!BUILD) return; // dev server
-    if (newBuild) { if (App.idleSeconds() >= 30) location.reload(); return; }
+    if (Date.now() - LOADED > MAX_AGE_MS) reloadDue = true;
+    if (reloadDue) { if (App.idleSeconds() >= 30) location.reload(); return; }
     fetch('version.json', { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     }).then(function (v) {
-      if (v.build && v.build !== BUILD) { newBuild = true; checkVersion(); }
+      if (v.build && v.build !== BUILD) { reloadDue = true; checkVersion(); }
     }).catch(function () { /* server restarting mid-deploy: try again next minute */ });
   }
 
@@ -300,6 +303,6 @@
     setInterval(loadWeather, WEATHER_MS);
     setInterval(checkVersion, 60 * 1000);
   });
-  // Once a new build is known, retry every few seconds until the screen has been idle.
-  setInterval(function () { if (newBuild) checkVersion(); }, 5000);
+  // Once a reload is due, retry every few seconds until the screen has been idle.
+  setInterval(function () { if (reloadDue) checkVersion(); }, 5000);
 })();
