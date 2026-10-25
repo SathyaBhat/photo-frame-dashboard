@@ -25,7 +25,8 @@
 
   function post(body) {
     if (Date.now() < pausedUntil) return;
-    fetch('api/diag', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), keepalive: true })
+    // No keepalive: the frame's WebView never frees its 64 KiB keepalive budget, so beats failed after ~65 minutes.
+    fetch('api/diag', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       // No InfluxDB, or the proxy briefly lost the route during a deploy: pause, never stop for good.
       .then(function (r) { if (r.status === 503 || r.status === 404) pausedUntil = Date.now() + PAUSE_MS; })
       .catch(function () { /* server restarting: the next beat tries again */ });
