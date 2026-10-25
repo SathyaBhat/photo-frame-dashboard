@@ -7,8 +7,6 @@ import { createCalendar, fetchFeed } from './calendar-service.js';
 import { createTrello } from './trello-service.js';
 import { groceriesRoute } from './groceries-route.js';
 import { choresRoute } from './chores-route.js';
-import { diagRoute } from './diag-route.js';
-import { createInflux } from './influx.js';
 
 var BOM = 'https://api.weather.bom.gov.au/v1';
 var TTL = 15 * 60 * 1000;
@@ -32,8 +30,6 @@ var GCAL_ICS_URL = process.env.GCAL_ICS_URL || '';
 var TRELLO_KEY = process.env.TRELLO_API_KEY || '';
 var TRELLO_TOKEN = process.env.TRELLO_TOKEN || '';
 var TRELLO_BOARD = process.env.TRELLO_BOARD || '';
-// InfluxDB for the frame's health reports (/api/diag). Optional: without all three the route answers 503.
-var influx = createInflux({ url: process.env.INFLUX_HOST, token: process.env.INFLUX_TOKEN, db: process.env.INFLUX_DB });
 if (!GEOHASH) { console.error('Set BOM_LOCATION to a BOM geohash (find one: https://api.weather.bom.gov.au/v1/locations?search=<suburb>)'); process.exit(1); }
 
 async function bom(path, optional) {
@@ -141,10 +137,10 @@ async function energy(day) {
   return data;
 }
 
-function readJSON(req, max) {
+function readJSON(req) {
   return new Promise(function (resolve, reject) {
     var buf = '';
-    req.on('data', function (c) { buf += c; if (buf.length > (max || 4096)) { reject(new BadRequest('body too large')); req.destroy(); } });
+    req.on('data', function (c) { buf += c; if (buf.length > 4096) { reject(new BadRequest('body too large')); req.destroy(); } });
     req.on('end', function () { try { resolve(buf ? JSON.parse(buf) : {}); } catch (e) { reject(new BadRequest('invalid JSON')); } });
     req.on('error', reject);
   });
@@ -194,7 +190,6 @@ function send(res, status, body) {
 
 var groceries = groceriesRoute({ trello: trello, readJSON: readJSON, send: send });
 var chores = choresRoute({ trello: trello, readJSON: readJSON, send: send });
-var diag = diagRoute({ influx: influx, readJSON: readJSON, send: send });
 
 createServer(async function (req, res) {
   var path = new URL(req.url, 'http://x').pathname;
@@ -211,7 +206,6 @@ createServer(async function (req, res) {
   if (path === '/api/home' || /^\/api\/(device|scene|media)\//.test(path)) return homeRoute(req, res, path);
   if (path === '/api/groceries' || path.indexOf('/api/groceries/') === 0) return groceries(req, res, path);
   if (path === '/api/chores' || path.indexOf('/api/chores/') === 0) return chores(req, res, path);
-  if (path === '/api/diag') return diag(req, res);
   if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
   if (path === '/api/health') return send(res, 200, { ok: true });
   if (path === '/api/calendar') {
@@ -232,4 +226,4 @@ createServer(async function (req, res) {
     }
   }
   send(res, 404, { error: 'not found' });
-}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off') + ', calendar ' + (GCAL_ICS_URL ? 'on' : 'off') + ', trello ' + (trello ? 'on' : 'off') + ', influx ' + (influx ? 'on' : 'off')); });
+}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off') + ', calendar ' + (GCAL_ICS_URL ? 'on' : 'off') + ', trello ' + (trello ? 'on' : 'off')); });

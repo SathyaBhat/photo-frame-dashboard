@@ -47,10 +47,6 @@ services:
       - TRELLO_BOARD=${TRELLO_BOARD:-}
       # Comma-separated first names to leave out of the chore assignees (optional).
       - CHORES_HIDE_MEMBERS=${CHORES_HIDE_MEMBERS:-}
-      # InfluxDB 3 for the frame's health heartbeats and freeze reports (optional, all three needed).
-      - INFLUX_HOST=${INFLUX_HOST:-}
-      - INFLUX_TOKEN=${INFLUX_TOKEN:-}
-      - INFLUX_DB=${INFLUX_DB:-}
     networks:
       - dokploy-network
     labels:
