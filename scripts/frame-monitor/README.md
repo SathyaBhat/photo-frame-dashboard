@@ -30,7 +30,7 @@ systemctl --user daemon-reload && systemctl --user enable --now frame-monitor
 journalctl --user -u frame-monitor -f
 ```
 
-The api container needs `INFLUX_URL=http://influxdb:8181`, `INFLUX_TOKEN` and `INFLUX_DB=frame` in the Dokploy
+The api container needs `INFLUX_HOST=http://influxdb:8181`, `INFLUX_TOKEN` and `INFLUX_DB=frame` in the Dokploy
 environment; without them `/api/diag` answers 503 and the page stops sending.
 
 Test without the frame: `CDP_DIRECT=1 CDP_PORT=<port>` attaches to a desktop Chrome started with

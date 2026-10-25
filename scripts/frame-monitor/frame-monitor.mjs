@@ -8,7 +8,7 @@
 //    as frozen: it pauses the debugger every 2 s to sample the JS stack, saves the trace (the seconds before the
 //    freeze and its start) to OUT, and writes a "freeze,source=cdp" point. kill -USR1 saves a trace by hand.
 //
-// Env: FRAME (ip:port, required), INFLUX_URL (default http://127.0.0.1:8181), INFLUX_TOKEN, INFLUX_DB (default
+// Env: FRAME (ip:port, required), INFLUX_HOST (default http://127.0.0.1:8181), INFLUX_TOKEN, INFLUX_DB (default
 // frame), OUT (default diagnostics/akimart-rk3326/freezes), CDP_PORT (9222), POLL_S (10), TRACE (1; 0 = no ring
 // trace, pings and stack samples only), TRACE_SAMPLES (0; 1 adds the V8 sampling profiler to the trace),
 // CDP_DIRECT (1 = skip adb and attach to a desktop Chrome already listening on CDP_PORT, for testing).
@@ -31,7 +31,7 @@ var OUT = process.env.OUT || join(ROOT, 'diagnostics/akimart-rk3326/freezes');
 var CDP_PORT = +process.env.CDP_PORT || 9222;
 var POLL_S = +process.env.POLL_S || 10;
 var TRACE = process.env.TRACE !== '0';
-var influx = createInflux({ url: process.env.INFLUX_URL || 'http://127.0.0.1:8181', token: process.env.INFLUX_TOKEN, db: process.env.INFLUX_DB || 'frame' });
+var influx = createInflux({ url: process.env.INFLUX_HOST || 'http://127.0.0.1:8181', token: process.env.INFLUX_TOKEN, db: process.env.INFLUX_DB || 'frame' });
 if (!influx) console.warn('INFLUX_TOKEN not set: metrics are only logged on freezes, not stored');
 mkdirSync(OUT, { recursive: true });
 

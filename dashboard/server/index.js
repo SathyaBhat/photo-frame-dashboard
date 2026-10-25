@@ -33,7 +33,7 @@ var TRELLO_KEY = process.env.TRELLO_API_KEY || '';
 var TRELLO_TOKEN = process.env.TRELLO_TOKEN || '';
 var TRELLO_BOARD = process.env.TRELLO_BOARD || '';
 // InfluxDB for the frame's health reports (/api/diag). Optional: without all three the route answers 503.
-var influx = createInflux({ url: process.env.INFLUX_URL, token: process.env.INFLUX_TOKEN, db: process.env.INFLUX_DB });
+var influx = createInflux({ url: process.env.INFLUX_HOST, token: process.env.INFLUX_TOKEN, db: process.env.INFLUX_DB });
 if (!GEOHASH) { console.error('Set BOM_LOCATION to a BOM geohash (find one: https://api.weather.bom.gov.au/v1/locations?search=<suburb>)'); process.exit(1); }
 
 async function bom(path, optional) {
