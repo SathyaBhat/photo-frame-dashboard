@@ -16,4 +16,5 @@ import './views/energy.js';
 import './views/weather.js';
 import './views/settings.js';
 import './views/ambient.js';
+import './monitor.js';
 import './diag.js';

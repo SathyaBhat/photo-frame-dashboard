@@ -1,0 +1,13 @@
+[Unit]
+Description=Photo frame health monitor and freeze recorder
+After=network-online.target
+
+[Service]
+# FRAME, INFLUX_TOKEN and any overrides (see frame-monitor.mjs). Keep this file out of the repo.
+EnvironmentFile=%h/.config/frame-monitor.env
+ExecStart=/usr/bin/node %h/code/photo-frame-dashboard/scripts/frame-monitor/frame-monitor.mjs
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
