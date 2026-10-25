@@ -10,9 +10,12 @@ var BEAT_BOOL = { focus: 'input_focus', sheet: 'sheet_open', vis: 'visible' };
 function name(v) { return typeof v === 'string' && /^[a-z0-9_-]{1,24}$/i.test(v) ? v : 'other'; }
 function num(v) { return typeof v === 'number' && isFinite(v) && v >= 0 && v < 1e9 ? v : undefined; }
 
-export function diagLines(body, now) {
+// The frame is the only Android WebView ("; wv)" in its user agent); anything else is someone's browser.
+export function client(ua) { return /; wv\)/.test(ua || '') ? 'frame' : 'browser'; }
+
+export function diagLines(body, now, ua) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequest('invalid body');
-  var tags = { view: name(body.view), mode: name(body.mode) };
+  var tags = { client: client(ua), view: name(body.view), mode: name(body.mode) };
   if (body.kind === 'beat') {
     var f = {};
     Object.keys(BEAT_NUM).forEach(function (k) { f[BEAT_NUM[k]] = num(body[k]); });
@@ -38,7 +41,7 @@ export function diagRoute({ influx, readJSON, send }) {
     if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' });
     if (!influx) return send(res, 503, { error: 'influx not configured' });
     try {
-      var lines = diagLines(await readJSON(req, 8192), Date.now());
+      var lines = diagLines(await readJSON(req, 8192), Date.now(), req.headers && req.headers['user-agent']);
       await influx(lines);
       if (failing) { failing = false; console.log('influx writes recovered'); }
       return send(res, 200, { ok: true });

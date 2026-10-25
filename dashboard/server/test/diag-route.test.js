@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diagLines, diagRoute } from '../diag-route.js';
+import { diagLines, diagRoute, client } from '../diag-route.js';
 import { line, createInflux } from '../influx.js';
 
 var NOW = 1700000000000;
@@ -22,18 +22,24 @@ test('line escapes tags and strings, writes numbers as floats and skips missing 
 
 test('a beat maps to one page line with tags for view and mode', function () {
   var l = diagLines({ kind: 'beat', view: 'calendar', mode: 'day', gap: 120, ltN: 2, ltMax: 300, ltSum: 420, heap: 18, dom: 2400, w: 1280, h: 800, focus: false, sheet: true, up: 600, vis: true }, NOW);
-  assert.deepEqual(l, ['page,mode=day,view=calendar gap_ms=120,longtask_n=2,longtask_max_ms=300,longtask_sum_ms=420,heap_mb=18,dom_nodes=2400,' +
+  assert.deepEqual(l, ['page,client=browser,mode=day,view=calendar gap_ms=120,longtask_n=2,longtask_max_ms=300,longtask_sum_ms=420,heap_mb=18,dom_nodes=2400,' +
     'inner_w=1280,inner_h=800,uptime_s=600,input_focus=false,sheet_open=true,visible=true 1700000000000']);
 });
 
 test('unknown view names and bad numbers are not trusted', function () {
   var l = diagLines({ kind: 'beat', view: 'a b,c', gap: -1, dom: 'lots', heap: 5 }, NOW)[0];
-  assert.match(l, /^page,mode=other,view=other heap_mb=5 /);
+  assert.match(l, /^page,client=browser,mode=other,view=other heap_mb=5 /);
 });
 
 test('a freeze is timestamped at its start and carries the crumbs', function () {
   var l = diagLines({ kind: 'freeze', view: 'tasks', mode: 'day', ms: 4000, crumbs: ['-5.0s go tasks 80ms', 7, '-0.1s focus input'] }, NOW)[0];
-  assert.equal(l, 'freeze,mode=day,source=page,view=tasks ms=4000,crumbs="-5.0s go tasks 80ms | -0.1s focus input" ' + (NOW - 4000));
+  assert.equal(l, 'freeze,client=browser,mode=day,source=page,view=tasks ms=4000,crumbs="-5.0s go tasks 80ms | -0.1s focus input" ' + (NOW - 4000));
+});
+
+test('client tells the frame WebView from other browsers', function () {
+  assert.equal(client('Mozilla/5.0 (Linux; Android 8.1.0; rk3326 Build/OPM8; wv) AppleWebKit/537.36 Chrome/106.0 Safari/537.36'), 'frame');
+  assert.equal(client('Mozilla/5.0 (X11; Linux x86_64) Chrome/140.0 Safari/537.36'), 'browser');
+  assert.equal(client(undefined), 'browser');
 });
 
 test('route writes lines and answers 200', async function () {
