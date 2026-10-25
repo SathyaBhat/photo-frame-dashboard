@@ -5,7 +5,8 @@
   'use strict';
   var App = window.App;
   var BEAT_MS = 10000, FREEZE_MS = 2000, CRUMBS = 40;
-  var t0 = Date.now(), off = false;
+  var PAUSE_MS = 300000;
+  var t0 = Date.now(), pausedUntil = 0;
   var crumbs = [], lt = { n: 0, max: 0, sum: 0 }, gapMax = 0, lastLong = { at: 0, ms: 0 };
 
   function crumb(s) {
@@ -23,9 +24,10 @@
   function isField(el) { return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable); }
 
   function post(body) {
-    if (off) return;
+    if (Date.now() < pausedUntil) return;
     fetch('api/diag', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), keepalive: true })
-      .then(function (r) { if (r.status === 503 || r.status === 404) off = true; }) // no InfluxDB (or no server): stop
+      // No InfluxDB, or the proxy briefly lost the route during a deploy: pause, never stop for good.
+      .then(function (r) { if (r.status === 503 || r.status === 404) pausedUntil = Date.now() + PAUSE_MS; })
       .catch(function () { /* server restarting: the next beat tries again */ });
   }
 

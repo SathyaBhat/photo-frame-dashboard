@@ -31,7 +31,7 @@ journalctl --user -u frame-monitor -f
 ```
 
 The api container needs `INFLUX_HOST=http://influxdb:8181`, `INFLUX_TOKEN` and `INFLUX_DB=frame` in the Dokploy
-environment; without them `/api/diag` answers 503 and the page stops sending.
+environment; without them `/api/diag` answers 503 and the page stops sending for 5 minutes at a time.
 
 Grafana: dashboard **Photo frame health** (`grafana-dashboard.json`, made by `make-dashboard.py`) on the
 `frame` datasource (uid `frame-influx`, InfluxDB SQL). Re-import after editing:
