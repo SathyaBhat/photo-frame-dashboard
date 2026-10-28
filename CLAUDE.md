@@ -19,9 +19,11 @@ IP, dashboard URL) live in the git-ignored `CLAUDE.local.md`. Never commit them.
 
 ## Reaching the frame
 
-- Network ADB is closed at boot. The owner runs `adb tcpip 5555` over USB from another computer
-  (a USB-A port; USB-C to USB-C gives no power or data), then `adb connect <frame-ip>:5555` here.
-  Any reboot closes it again.
+- Network ADB stays open across reboots (`persist.adb.tcp.port=5555`, set as root), so
+  `adb connect <frame-ip>:5555` from here is enough. Don't ask the owner to plug the frame into a
+  computer: its only USB-C port is its power. If the property is ever lost, the fallback is
+  `adb tcpip 5555` over USB from another computer (a USB-A port; USB-C to USB-C gives no power
+  or data). Undo: `su 0 setprop persist.adb.tcp.port ""`.
 - Root is `su 0 <cmd>`; `su -c` fails on this build.
 - Commands are slow over Wi-Fi. Wrap them in `timeout`, avoid `am start -W` (it hung on the kiosk),
   and expect `screencap -p` to take a while.
