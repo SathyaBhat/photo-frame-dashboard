@@ -130,6 +130,8 @@
       node.classList.add('is-in');
       node.style.opacity = '';
       old.forEach(function (o) { o.remove(); });
+      // This slide's image listeners keep this scope alive; without this, every slide holds the one before it.
+      old = null;
     }
     if (first && !first.complete) { first.addEventListener('load', show); first.addEventListener('error', show); setTimeout(show, 2500); }
     else show();
