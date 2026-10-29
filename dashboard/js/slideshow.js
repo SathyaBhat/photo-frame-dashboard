@@ -142,6 +142,7 @@
     var s = this.pick();
     if (!s) return;
     if (this.current) this.history.push(this.current);
+    if (this.history.length > 50) this.history.shift(); // back only needs the recent few; the frame runs for days
     this.render(s);
     this.restart();
   };
