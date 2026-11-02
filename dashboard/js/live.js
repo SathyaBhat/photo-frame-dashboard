@@ -272,6 +272,33 @@
     });
   };
 
+  // Immich "On this day" memories, via the frame server. A day without memories gets the most recent earlier day's
+  // (the server looks back up to a week). An empty list, a 503 (no Immich configured) or an unreachable server
+  // leaves the slideshow as it is. The day is the frame's own date, so the photos change at the frame's midnight.
+  var PHOTOS_MS = 60 * 60 * 1000;
+  var photosJSON = '';
+  var photosDay = '';
+
+  function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+
+  function loadPhotos() {
+    var day = ymd(App.now());
+    return getJSON('photos?day=' + day).then(function (res) {
+      photosDay = day;
+      if (!res.photos.length) return;
+      var json = JSON.stringify(res.photos);
+      if (json === photosJSON) return;
+      photosJSON = json;
+      // The image proxy needs the day this list is for, to rebuild its list after a server restart.
+      res.photos.forEach(function (p) { p.day = day; });
+      D.photos = res.photos;
+      App.emit('data');
+    }).catch(function (e) {
+      if (e.message === 'HTTP 503') return; // server has no Immich configured: stay on mock
+      console.warn('HomeHQ live photos failed, keeping current photos:', e.message);
+    });
+  }
+
   // Deploy detection: version.json is rewritten on every build. When it differs from the id this
   // page was built with, reload, but only once nobody has touched the screen for a while.
   var BUILD = typeof __BUILD_ID__ === 'undefined' ? null : __BUILD_ID__;
@@ -298,6 +325,10 @@
     setInterval(loadHome, HOME_MS);
     setInterval(loadCalendar, CAL_MS);
     setInterval(loadWeather, WEATHER_MS);
+    loadPhotos();
+    setInterval(loadPhotos, PHOTOS_MS);
+    // Midnight: fetch the new day's memories without waiting for the hourly refresh.
+    App.on('minute', function () { if (photosDay && ymd(App.now()) !== photosDay) { photosDay = ''; loadPhotos(); } });
     setInterval(checkVersion, 60 * 1000);
   });
   // Once a new build is known, retry every few seconds until the screen has been idle.

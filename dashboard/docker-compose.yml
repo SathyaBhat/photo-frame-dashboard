@@ -47,6 +47,10 @@ services:
       - TRELLO_BOARD=${TRELLO_BOARD:-}
       # Comma-separated first names to leave out of the chore assignees (optional).
       - CHORES_HIDE_MEMBERS=${CHORES_HIDE_MEMBERS:-}
+      # Immich for the slideshow's "On this day" photos (optional, both needed). Without them the frame keeps its mock photos.
+      # The api container shares dokploy-network with Immich, so IMMICH_URL can be its container address.
+      - IMMICH_URL=${IMMICH_URL:-}
+      - IMMICH_API_KEY=${IMMICH_API_KEY:-}
     networks:
       - dokploy-network
     labels:

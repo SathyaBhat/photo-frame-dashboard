@@ -3,7 +3,9 @@
   'use strict';
   var D = window.DATA;
 
+  // Immich photos (they have an id) come through the frame server's proxy; mock ones (a seed) from picsum.
   function src(p, big) {
+    if (p.id) return 'api/photos/' + encodeURIComponent(p.id) + '?day=' + p.day + (big ? '' : '&size=thumbnail');
     var w = p.o === 'p' ? 800 : 1600, h = p.o === 'p' ? 1200 : 1000;
     if (!big) { w = Math.round(w / 2); h = Math.round(h / 2); }
     return App.img(p.seed, w, h);
@@ -31,7 +33,7 @@
   function caption(ps, size) {
     var m = App.photoMeta(ps[0]);
     return '<div class="cap cap--' + (size || 'l') + '">' +
-      '<div class="cap-kicker">' + (m.onThisDay ? '<b>On this day</b> · ' : '') + m.kicker + ' · ' + App.esc(m.place) + '</div>' +
+      '<div class="cap-kicker">' + (m.onThisDay ? '<b>On this day</b> · ' : '') + m.kicker + (m.place ? ' · ' + App.esc(m.place) : '') + '</div>' +
       '<div class="cap-date serif">' + (ps.length > 1 ? m.monthYear : m.date) + '</div>' +
       '</div>';
   }
@@ -59,7 +61,7 @@
       var p = ps[0], m = App.photoMeta(p), rot = (Math.random() * 5 - 2.5).toFixed(1);
       return '<div class="slide slide--polaroid"><img class="blurfill" src="' + src(p) + '" alt="">' +
         '<figure class="polaroid polaroid--' + p.o + '" style="transform:rotate(' + rot + 'deg)"><div class="polaroid-img"><img src="' + src(p, true) + '" alt=""></div>' +
-        '<figcaption class="serif"><i>' + App.esc(m.place) + ', ' + m.monthYear + '</i></figcaption></figure></div>';
+        '<figcaption class="serif"><i>' + (m.place ? App.esc(m.place) + ', ' : '') + m.monthYear + '</i></figcaption></figure></div>';
     }
   };
 
@@ -80,9 +82,10 @@
     // On-this-day photos always come first in a fresh cycle
     shuffle(q).sort(function (a, b) { return (App.photoMeta(b).onThisDay ? 1 : 0) - (App.photoMeta(a).onThisDay ? 1 : 0); });
     this.queue = q;
+    this.from = D.photos;
   };
   S.take = function (pred) {
-    if (!this.queue.length) this.refill();
+    if (!this.queue.length || this.from !== D.photos) this.refill(); // new photos from the server: start a fresh cycle
     for (var i = 0; i < this.queue.length; i++) if (!pred || pred(this.queue[i])) return this.queue.splice(i, 1)[0];
     return null;
   };
