@@ -99,6 +99,16 @@ npx vite --host             # live-reload dev server for desktop testing at 1280
 npx vite build              # local check; the frame does not load this dist/
 ```
 
+Desktop screenshots: use the Playwright Docker image. The Playwright Chromium in `~/.cache/ms-playwright`
+won't start on this machine (missing `libatk`). With `npx vite --port 5199` and the API server on 8080 running:
+
+```sh
+docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD/../diagnostics/shots:/out" \
+  mcr.microsoft.com/playwright:v1.56.1-noble bash -c 'B=$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome | head -1); \
+  HOME=/tmp $B --headless=new --no-sandbox --disable-gpu --window-size=1280,800 --virtual-time-budget=20000 \
+  --screenshot=/out/home.png "http://localhost:5199/#home"'
+```
+
 The frame loads the dashboard from a Dokploy app on the server, under the `/frame/` path (details in
 `CLAUDE.local.md`). Dokploy builds `dashboard/docker-compose.yml` from this fork's `main`: the
 `Dockerfile` runs `vite build --base /frame/` and serves `dist/` with nginx behind Dokploy's
