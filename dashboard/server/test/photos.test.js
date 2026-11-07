@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPhotos, placeOf, validDay, validId, createPhotos, NotFound } from '../photos-service.js';
+import { buildPhotos, buildAlbumPhotos, placeOf, validDay, validId, createPhotos, NotFound } from '../photos-service.js';
 import { photosRoute } from '../photos-route.js';
 
 function id(n) { return '00000000-0000-4000-8000-' + String(n).padStart(12, '0'); }
@@ -184,4 +184,49 @@ test('route: reports which day the photos are from, and passes the day to the im
   assert.equal(r.body.from, '2026-11-02');
   var fresh = createPhotos({ request: fakeImmich() });
   assert.equal((await call(fresh, 'GET', '/api/photos/' + id(1) + '?day=2026-11-04&size=thumbnail')).status, 200);
+});
+
+// A fake Immich album search: pages of assets with exif, as /search/metadata answers.
+function fakeAlbum(pages) {
+  var f = async function (path, timeoutMs, body) {
+    f.calls.push({ path: path, body: body });
+    if (path === '/search/metadata') {
+      var i = body.page - 1;
+      return { json: async function () { return { assets: { items: pages[i], nextPage: i + 1 < pages.length ? String(body.page + 1) : null } }; } };
+    }
+    if (/\/thumbnail\?/.test(path)) return { headers: new Headers({ 'content-type': 'image/jpeg' }), body: null };
+    throw new Error('unexpected ' + path);
+  };
+  f.calls = [];
+  return f;
+}
+
+test('album photos take their place from exif and skip what memories skip', function () {
+  var out = buildAlbumPhotos([
+    asset(1, { exifInfo: { city: 'Canacona', state: 'Goa' } }),
+    asset(2, { type: 'VIDEO' }), asset(3, { isArchived: true }), asset(1), asset(4, { width: 3024, height: 4032 })
+  ]);
+  assert.deepEqual(out.map(function (p) { return [p.id, p.place, p.o]; }), [[id(1), 'Canacona, Goa', 'l'], [id(4), '', 'p']]);
+});
+
+test('an album over 200 photos gets a sample of 200', function () {
+  var many = [];
+  for (var i = 1; i <= 250; i++) many.push(asset(i));
+  assert.equal(buildAlbumPhotos(many).length, 200);
+});
+
+test('with an album set, every day gets the album across all pages, and its photos are served', async function () {
+  var A = id(99);
+  var api = fakeAlbum([[asset(1), asset(2)], [asset(3)]]);
+  var p = createPhotos({ request: api, album: A });
+  var r = await p.get('2026-11-02');
+  assert.deepEqual(r.data.map(function (x) { return x.id; }), [id(1), id(2), id(3)]);
+  assert.equal(r.from, null);
+  assert.deepEqual(api.calls.map(function (c) { return c.body.page; }), [1, 2]);
+  assert.deepEqual(api.calls[0].body.albumIds, [A]);
+  assert.ok(api.calls.every(function (c) { return !/memories/.test(c.path); }));
+  await p.image(id(3));
+  var fresh = createPhotos({ request: fakeAlbum([[asset(1)]]), album: A });
+  await fresh.image(id(1), undefined, '2026-11-02'); // after a restart, as with memories
+  await assert.rejects(fresh.image(id(7), undefined, '2026-11-02'), NotFound);
 });

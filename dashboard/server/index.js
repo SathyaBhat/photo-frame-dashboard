@@ -7,7 +7,7 @@ import { createCalendar, fetchFeed } from './calendar-service.js';
 import { createTrello } from './trello-service.js';
 import { groceriesRoute } from './groceries-route.js';
 import { choresRoute } from './chores-route.js';
-import { createPhotos } from './photos-service.js';
+import { createPhotos, validId } from './photos-service.js';
 import { photosRoute } from './photos-route.js';
 
 var BOM = 'https://api.weather.bom.gov.au/v1';
@@ -36,6 +36,9 @@ var TRELLO_BOARD = process.env.TRELLO_BOARD || '';
 // its mock photos. The key is a credential: never log it or put it in an error.
 var IMMICH_URL = (process.env.IMMICH_URL || '').replace(/\/+$/, '');
 var IMMICH_API_KEY = process.env.IMMICH_API_KEY || '';
+// Optional album id: show that album instead of "On this day" memories.
+var IMMICH_ALBUM = (process.env.IMMICH_ALBUM || '').trim();
+if (IMMICH_ALBUM && !validId(IMMICH_ALBUM)) { console.error('IMMICH_ALBUM is not an album id, showing memories instead'); IMMICH_ALBUM = ''; }
 if (!GEOHASH) { console.error('Set BOM_LOCATION to a BOM geohash (find one: https://api.weather.bom.gov.au/v1/locations?search=<suburb>)'); process.exit(1); }
 
 async function bom(path, optional) {
@@ -52,7 +55,7 @@ async function bom(path, optional) {
 var calendar = GCAL_ICS_URL ? createCalendar({ url: GCAL_ICS_URL, fetchText: fetchFeed }) : null;
 var trello = TRELLO_KEY && TRELLO_TOKEN && TRELLO_BOARD ? createTrello({ key: TRELLO_KEY, token: TRELLO_TOKEN, board: TRELLO_BOARD, hideMembers: (process.env.CHORES_HIDE_MEMBERS || '').split(',').filter(Boolean) }) : null;
 
-var photos = IMMICH_URL && IMMICH_API_KEY ? createPhotos({ url: IMMICH_URL, key: IMMICH_API_KEY }) : null;
+var photos = IMMICH_URL && IMMICH_API_KEY ? createPhotos({ url: IMMICH_URL, key: IMMICH_API_KEY, album: IMMICH_ALBUM }) : null;
 
 var location; // timezone rarely changes; fetch once
 async function fetchWeather() {
@@ -236,4 +239,4 @@ createServer(async function (req, res) {
     }
   }
   send(res, 404, { error: 'not found' });
-}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off') + ', calendar ' + (GCAL_ICS_URL ? 'on' : 'off') + ', trello ' + (trello ? 'on' : 'off') + ', immich ' + (photos ? 'on' : 'off')); });
+}).listen(PORT, function () { console.log('frame-server listening on ' + PORT + ', BOM ' + GEOHASH + ', HA ' + (HA_URL && HA_TOKEN ? 'on' : 'off') + ', calendar ' + (GCAL_ICS_URL ? 'on' : 'off') + ', trello ' + (trello ? 'on' : 'off') + ', immich ' + (photos ? (IMMICH_ALBUM ? 'album' : 'memories') : 'off')); });

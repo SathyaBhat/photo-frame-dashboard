@@ -1,4 +1,4 @@
-// Immich "On this day" memories for the slideshow, plus a proxy for their images so the API key stays here.
+// Immich photos for the slideshow ("On this day" memories, or one album when IMMICH_ALBUM is set), plus a proxy for their images so the API key stays here.
 // Only photos this service has handed out can be fetched through the proxy, not the rest of the library.
 
 export class NotFound extends Error {}
@@ -30,37 +30,50 @@ export function placeOf(exif) {
   return parts.join(', ');
 }
 
-// Memories -> the slideshow's photo shape. Images only, nothing archived, hidden or trashed.
+// One Immich asset -> the slideshow's photo shape, or null to skip it. Images only, nothing archived, hidden or trashed.
 // localDateTime is the wall-clock time where the photo was taken, so its date part is the photo's day.
+function toPhoto(a, place) {
+  if (!a || !validId(a.id) || a.type !== 'IMAGE' || a.isTrashed || a.isArchived) return null;
+  if (a.visibility && a.visibility !== 'timeline') return null;
+  var date = String(a.localDateTime || a.fileCreatedAt || '').slice(0, 10);
+  if (!validDay(date)) return null;
+  return { id: a.id, o: a.height > a.width ? 'p' : 'l', date: date, place: place || '', fav: !!a.isFavorite, tag: 'year-' + date.slice(0, 4) };
+}
+
+function addUnique(out, seen, p) {
+  if (!p || seen[p.id]) return;
+  seen[p.id] = true;
+  out.push(p);
+}
+
+// Memories -> photos.
 export function buildPhotos(memories, places) {
   var out = [], seen = {};
   (memories || []).forEach(function (m) {
     if (m.type !== 'on_this_day' || m.isTrashed) return;
-    (m.assets || []).forEach(function (a) {
-      if (!a || !validId(a.id) || seen[a.id] || a.type !== 'IMAGE' || a.isTrashed || a.isArchived) return;
-      if (a.visibility && a.visibility !== 'timeline') return;
-      var date = String(a.localDateTime || a.fileCreatedAt || '').slice(0, 10);
-      if (!validDay(date)) return;
-      seen[a.id] = true;
-      out.push({
-        id: a.id,
-        o: a.height > a.width ? 'p' : 'l',
-        date: date,
-        place: (places && places[a.id]) || '',
-        fav: !!a.isFavorite,
-        tag: 'year-' + date.slice(0, 4)
-      });
-    });
+    (m.assets || []).forEach(function (a) { addUnique(out, seen, toPhoto(a, a && places && places[a.id])); });
   });
+  return out.slice(0, MAX_PHOTOS);
+}
+
+// Album search results (with exif) -> photos. The slideshow shuffles them itself, so the order is kept and the frame
+// sees the same list each hour; only an album over MAX_PHOTOS gets a random sample.
+export function buildAlbumPhotos(assets, random) {
+  var out = [], seen = {};
+  (assets || []).forEach(function (a) { addUnique(out, seen, toPhoto(a, a && placeOf(a.exifInfo))); });
+  if (out.length <= MAX_PHOTOS) return out;
+  var rnd = random || Math.random;
+  for (var i = out.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), t = out[i]; out[i] = out[j]; out[j] = t; }
   return out.slice(0, MAX_PHOTOS);
 }
 
 // The key can show up in errors fetch quotes, so failures are rethrown with fixed messages.
 export function defaultRequest(url, key) {
-  return async function (path, timeoutMs) {
-    var res;
+  return async function (path, timeoutMs, body) {
+    var res, headers = { 'x-api-key': key, accept: 'application/json' };
+    if (body) headers['content-type'] = 'application/json';
     try {
-      res = await fetch(url + '/api' + path, { headers: { 'x-api-key': key, accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs || 15000) });
+      res = await fetch(url + '/api' + path, { method: body ? 'POST' : 'GET', headers: headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(timeoutMs || 15000) });
     } catch (e) {
       throw new Error('immich unreachable');
     }
@@ -70,7 +83,8 @@ export function defaultRequest(url, key) {
   };
 }
 
-export function createPhotos({ url, key, request, ttlMs, clock }) {
+// album: an Immich album id. When set, every day gets that album's photos instead of the day's memories.
+export function createPhotos({ url, key, album, request, ttlMs, clock }) {
   var ttl = ttlMs === undefined ? 60 * 60 * 1000 : ttlMs;
   var nowMs = clock || Date.now;
   var api = request || defaultRequest(url, key);
@@ -78,8 +92,8 @@ export function createPhotos({ url, key, request, ttlMs, clock }) {
   var places = {}; // asset id -> place name; a photo's place doesn't change
   var placeCount = 0;
 
-  async function json(path) {
-    var res = await api(path);
+  async function json(path, body) {
+    var res = await api(path, undefined, body);
     try { return await res.json(); } catch (e) { throw new Error('immich sent an unreadable response'); }
   }
 
@@ -105,7 +119,19 @@ export function createPhotos({ url, key, request, ttlMs, clock }) {
   }
 
   // The day's memories, or if it has none, those of the most recent day before it that has some (up to LOOKBACK days).
+  async function fetchAlbum() {
+    var assets = [];
+    for (var page = 1; page && page <= 20; ) { // 20 pages of 1000 is plenty for a frame album
+      var r = await json('/search/metadata', { albumIds: [album], type: 'IMAGE', withExif: true, size: 1000, page: page });
+      if (!r || !r.assets || !Array.isArray(r.assets.items)) throw new Error('immich sent an unexpected response');
+      assets = assets.concat(r.assets.items);
+      page = r.assets.nextPage ? +r.assets.nextPage : 0;
+    }
+    return { photos: buildAlbumPhotos(assets), from: null };
+  }
+
   async function fetchDay(day) {
+    if (album) return fetchAlbum();
     for (var i = 0; i <= LOOKBACK; i++) {
       var d = addDays(day, -i);
       var memories = await json('/memories?for=' + d);

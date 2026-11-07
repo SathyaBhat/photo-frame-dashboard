@@ -51,6 +51,8 @@ services:
       # The api container shares dokploy-network with Immich, so IMMICH_URL can be its container address.
       - IMMICH_URL=${IMMICH_URL:-}
       - IMMICH_API_KEY=${IMMICH_API_KEY:-}
+      # Immich album id to show instead of the memories (optional). The id is the last part of the album's URL in Immich.
+      - IMMICH_ALBUM=${IMMICH_ALBUM:-}
     networks:
       - dokploy-network
     labels:
