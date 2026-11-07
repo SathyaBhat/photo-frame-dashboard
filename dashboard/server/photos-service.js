@@ -56,14 +56,12 @@ export function buildPhotos(memories, places) {
   return out.slice(0, MAX_PHOTOS);
 }
 
-// Album search results (with exif) -> photos. The slideshow shuffles them itself, so the order is kept and the frame
-// sees the same list each hour; only an album over MAX_PHOTOS gets a random sample.
-export function buildAlbumPhotos(assets, random) {
+// Album search results (with exif) -> photos, sorted by id so an unchanged small album gives the frame the same list
+// each hour (the slideshow shuffles them itself).
+export function buildAlbumPhotos(assets) {
   var out = [], seen = {};
   (assets || []).forEach(function (a) { addUnique(out, seen, toPhoto(a, a && placeOf(a.exifInfo))); });
-  if (out.length <= MAX_PHOTOS) return out;
-  var rnd = random || Math.random;
-  for (var i = out.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), t = out[i]; out[i] = out[j]; out[j] = t; }
+  out.sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
   return out.slice(0, MAX_PHOTOS);
 }
 
@@ -83,12 +81,30 @@ export function defaultRequest(url, key) {
   };
 }
 
-// album: an Immich album id. When set, every day gets that album's photos instead of the day's memories.
+// album: the default Immich album id. When set, every day gets that album's photos instead of the day's memories.
+// Each get() can ask for a different album, or for memories with MEMORIES, so the frame can pick its own.
+export var MEMORIES = 'memories';
+var ALBUMS_MS = 10 * 60 * 1000;
+
+// Albums the frame can pick from, newest change first. Empty albums are left out.
+export function buildAlbums(owned, shared) {
+  var out = [], seen = {};
+  (owned || []).concat(shared || []).forEach(function (a) {
+    if (!a || !validId(a.id) || seen[a.id] || !(a.assetCount > 0)) return;
+    seen[a.id] = true;
+    out.push({ id: a.id, name: String(a.albumName || '').trim() || 'Untitled', count: a.assetCount, at: String(a.lastModifiedAssetTimestamp || a.updatedAt || '') });
+  });
+  out.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
+  return out.map(function (a) { return { id: a.id, name: a.name, count: a.count }; });
+}
+
 export function createPhotos({ url, key, album, request, ttlMs, clock }) {
+  var defaultAlbum = album || null;
   var ttl = ttlMs === undefined ? 60 * 60 * 1000 : ttlMs;
   var nowMs = clock || Date.now;
   var api = request || defaultRequest(url, key);
-  var days = {};   // day -> { at, data, inflight }
+  var days = {};   // day, or 'album:<id>' -> { at, data, inflight }
+  var albums = { at: 0, data: null, inflight: null };
   var places = {}; // asset id -> place name; a photo's place doesn't change
   var placeCount = 0;
 
@@ -118,20 +134,16 @@ export function createPhotos({ url, key, album, request, ttlMs, clock }) {
     return places;
   }
 
-  // The day's memories, or if it has none, those of the most recent day before it that has some (up to LOOKBACK days).
-  async function fetchAlbum() {
-    var assets = [];
-    for (var page = 1; page && page <= 20; ) { // 20 pages of 1000 is plenty for a frame album
-      var r = await json('/search/metadata', { albumIds: [album], type: 'IMAGE', withExif: true, size: 1000, page: page });
-      if (!r || !r.assets || !Array.isArray(r.assets.items)) throw new Error('immich sent an unexpected response');
-      assets = assets.concat(r.assets.items);
-      page = r.assets.nextPage ? +r.assets.nextPage : 0;
-    }
-    return { photos: buildAlbumPhotos(assets), from: null };
+  // Immich's random search returns the whole album when it is small, and a fresh sample each hour when it is big,
+  // in one request either way (an album such as Recents can hold tens of thousands of assets).
+  async function fetchAlbum(album) {
+    var items = await json('/search/random', { albumIds: [album], type: 'IMAGE', withExif: true, size: MAX_PHOTOS });
+    if (!Array.isArray(items)) throw new Error('immich sent an unexpected response');
+    return { photos: buildAlbumPhotos(items), from: null };
   }
 
+  // The day's memories, or if it has none, those of the most recent day before it that has some (up to LOOKBACK days).
   async function fetchDay(day) {
-    if (album) return fetchAlbum();
     for (var i = 0; i <= LOOKBACK; i++) {
       var d = addDays(day, -i);
       var memories = await json('/memories?for=' + d);
@@ -142,25 +154,30 @@ export function createPhotos({ url, key, album, request, ttlMs, clock }) {
     return { photos: [], from: null };
   }
 
-  async function get(day) {
-    var c = days[day];
-    if (c && c.data && nowMs() - c.at < ttl) return { data: c.data, from: c.from, stale: false, at: c.at };
+  // which: an album id, MEMORIES, or empty for the server's default.
+  function pick(which) { return which === MEMORIES ? null : which || defaultAlbum; }
+
+  async function get(day, which) {
+    var album = pick(which);
+    var k = album ? 'album:' + album : day;
+    var c = days[k];
+    if (c && c.data && nowMs() - c.at < ttl) return { data: c.data, from: c.from, album: album, stale: false, at: c.at };
     if (!c) {
-      // Only a few days are ever asked for (today, maybe a demo date): drop the rest.
+      // Only a few lists are ever asked for (today, maybe a demo date, the album just left): drop the rest.
       var keys = Object.keys(days);
-      if (keys.length >= 3) keys.forEach(function (k) { if (!days[k].inflight) delete days[k]; });
-      c = days[day] = { at: 0, data: null, from: null, inflight: null };
+      if (keys.length >= 3) keys.forEach(function (x) { if (!days[x].inflight) delete days[x]; });
+      c = days[k] = { at: 0, data: null, from: null, inflight: null };
     }
     try {
-      c.inflight = c.inflight || fetchDay(day);
+      c.inflight = c.inflight || (album ? fetchAlbum(album) : fetchDay(day));
       var got = await c.inflight;
       c.data = got.photos;
       c.from = got.from;
       c.at = nowMs();
-      return { data: c.data, from: c.from, stale: false, at: c.at };
+      return { data: c.data, from: c.from, album: album, stale: false, at: c.at };
     } catch (e) {
       console.error('photos refresh failed:', e.message);
-      if (c.data) return { data: c.data, from: c.from, stale: true, at: c.at };
+      if (c.data) return { data: c.data, from: c.from, album: album, stale: true, at: c.at };
       throw e;
     } finally {
       c.inflight = null;
@@ -176,12 +193,30 @@ export function createPhotos({ url, key, album, request, ttlMs, clock }) {
   // preview is about 1440 px on the long side (JPEG), thumbnail about 250 px (WebP).
   // The frame sends the day its list is for: after a server restart the cache is empty, so that day's list is
   // fetched again before the photo is checked, instead of refusing photos the frame is still showing.
-  async function image(id, size, day) {
+  // The frame also sends the album the list came from, for the same reason.
+  async function image(id, size, day, which) {
     if (!validId(id)) throw new NotFound('unknown photo');
-    if (!known(id) && validDay(day)) { try { await get(day); } catch (e) { /* answered below */ } }
+    if (!known(id) && validDay(day)) { try { await get(day, which); } catch (e) { /* answered below */ } }
     if (!known(id)) throw new NotFound('unknown photo');
     return api('/assets/' + id + '/thumbnail?size=' + (size === 'thumbnail' ? 'thumbnail' : 'preview'), 20000);
   }
 
-  return { get: get, image: image };
+  async function listAlbums() {
+    if (albums.data && nowMs() - albums.at < ALBUMS_MS) return { albums: albums.data, default: defaultAlbum };
+    try {
+      albums.inflight = albums.inflight || Promise.all([json('/albums'), json('/albums?shared=true')]);
+      var got = await albums.inflight;
+      if (!Array.isArray(got[0]) || !Array.isArray(got[1])) throw new Error('immich sent an unexpected response');
+      albums.data = buildAlbums(got[0], got[1]);
+      albums.at = nowMs();
+    } catch (e) {
+      console.error('albums refresh failed:', e.message);
+      if (!albums.data) throw e;
+    } finally {
+      albums.inflight = null;
+    }
+    return { albums: albums.data, default: defaultAlbum };
+  }
+
+  return { get: get, image: image, albums: listAlbums };
 }

@@ -7,6 +7,7 @@
     nightFrom: 22, nightTo: 6,      // hours (0-23)
     slideSecs: 0,                   // 0 = each photo view's own default
     captions: true,
+    photoAlbum: '',                 // '' = the server's default, 'memories' = On this day, else an Immich album id
     clock24: false, tempF: false
   };
   var vals = {};

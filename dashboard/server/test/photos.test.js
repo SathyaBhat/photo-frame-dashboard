@@ -186,47 +186,95 @@ test('route: reports which day the photos are from, and passes the day to the im
   assert.equal((await call(fresh, 'GET', '/api/photos/' + id(1) + '?day=2026-11-04&size=thumbnail')).status, 200);
 });
 
-// A fake Immich album search: pages of assets with exif, as /search/metadata answers.
-function fakeAlbum(pages) {
+// A fake Immich with albums: /search/random answers an album's assets, /albums lists owned and shared albums.
+function fakeAlbums(byAlbum, lists) {
   var f = async function (path, timeoutMs, body) {
     f.calls.push({ path: path, body: body });
-    if (path === '/search/metadata') {
-      var i = body.page - 1;
-      return { json: async function () { return { assets: { items: pages[i], nextPage: i + 1 < pages.length ? String(body.page + 1) : null } }; } };
-    }
+    if (f.fail) throw new Error('down');
+    if (path === '/search/random') return { json: async function () { return byAlbum[body.albumIds[0]] || []; } };
+    if (path === '/albums') return { json: async function () { return lists.owned; } };
+    if (path === '/albums?shared=true') return { json: async function () { return lists.shared; } };
     if (/\/thumbnail\?/.test(path)) return { headers: new Headers({ 'content-type': 'image/jpeg' }), body: null };
     throw new Error('unexpected ' + path);
   };
   f.calls = [];
   return f;
 }
+var A = id(91), B = id(92);
 
-test('album photos take their place from exif and skip what memories skip', function () {
+test('album photos take their place from exif, skip what memories skip, and come sorted by id', function () {
   var out = buildAlbumPhotos([
-    asset(1, { exifInfo: { city: 'Canacona', state: 'Goa' } }),
-    asset(2, { type: 'VIDEO' }), asset(3, { isArchived: true }), asset(1), asset(4, { width: 3024, height: 4032 })
+    asset(4, { width: 3024, height: 4032 }), asset(1, { exifInfo: { city: 'Canacona', state: 'Goa' } }),
+    asset(2, { type: 'VIDEO' }), asset(3, { isArchived: true }), asset(1)
   ]);
   assert.deepEqual(out.map(function (p) { return [p.id, p.place, p.o]; }), [[id(1), 'Canacona, Goa', 'l'], [id(4), '', 'p']]);
 });
 
-test('an album over 200 photos gets a sample of 200', function () {
-  var many = [];
-  for (var i = 1; i <= 250; i++) many.push(asset(i));
-  assert.equal(buildAlbumPhotos(many).length, 200);
-});
-
-test('with an album set, every day gets the album across all pages, and its photos are served', async function () {
-  var A = id(99);
-  var api = fakeAlbum([[asset(1), asset(2)], [asset(3)]]);
+test('the default album replaces memories, in one request of at most 200', async function () {
+  var api = fakeAlbums({ [A]: [asset(2), asset(1)] }, {});
   var p = createPhotos({ request: api, album: A });
   var r = await p.get('2026-11-02');
-  assert.deepEqual(r.data.map(function (x) { return x.id; }), [id(1), id(2), id(3)]);
-  assert.equal(r.from, null);
-  assert.deepEqual(api.calls.map(function (c) { return c.body.page; }), [1, 2]);
-  assert.deepEqual(api.calls[0].body.albumIds, [A]);
-  assert.ok(api.calls.every(function (c) { return !/memories/.test(c.path); }));
-  await p.image(id(3));
-  var fresh = createPhotos({ request: fakeAlbum([[asset(1)]]), album: A });
-  await fresh.image(id(1), undefined, '2026-11-02'); // after a restart, as with memories
-  await assert.rejects(fresh.image(id(7), undefined, '2026-11-02'), NotFound);
+  assert.deepEqual(r.data.map(function (x) { return x.id; }), [id(1), id(2)]);
+  assert.equal(r.album, A);
+  assert.deepEqual(api.calls.map(function (c) { return c.path; }), ['/search/random']);
+  assert.deepEqual(api.calls[0].body, { albumIds: [A], type: 'IMAGE', withExif: true, size: 200 });
+  await p.get('2026-11-03'); // same album on another day: cached
+  assert.equal(api.calls.length, 1);
+});
+
+test('the frame can ask for another album, or for memories, instead of the default', async function () {
+  var api = fakeAlbums({ [A]: [asset(1)], [B]: [asset(5)] }, {});
+  var p = createPhotos({ request: api, album: A });
+  assert.deepEqual((await p.get('2026-11-02', B)).data.map(function (x) { return x.id; }), [id(5)]);
+  var mem = fakeImmich();
+  var q = createPhotos({ request: mem, album: A });
+  var r = await q.get('2026-11-02', 'memories');
+  assert.equal(r.album, null);
+  assert.equal(r.from, '2026-11-02');
+});
+
+test('after a restart the image proxy rebuilds the album it is told about', async function () {
+  var fresh = createPhotos({ request: fakeAlbums({ [A]: [asset(1)], [B]: [asset(5)] }, {}) });
+  await fresh.image(id(5), undefined, '2026-11-02', B);
+  await assert.rejects(fresh.image(id(1), undefined, '2026-11-02', B), NotFound); // in A, not in B
+});
+
+test('albums: owned and shared, without empty ones or duplicates, last changed first, cached', async function () {
+  var api = fakeAlbums({}, {
+    owned: [
+      { id: A, albumName: 'Frame', assetCount: 50, lastModifiedAssetTimestamp: '2026-11-06T00:00:00Z' },
+      { id: id(93), albumName: 'Empty', assetCount: 0 },
+      { id: 'bad', albumName: 'Bad', assetCount: 3 }
+    ],
+    shared: [
+      { id: B, albumName: '  ', assetCount: 9, lastModifiedAssetTimestamp: '2026-11-07T00:00:00Z' },
+      { id: A, albumName: 'Frame', assetCount: 50 }
+    ]
+  });
+  var c = clock(0);
+  var p = createPhotos({ request: api, album: A, clock: c });
+  var r = await p.albums();
+  assert.deepEqual(r, { albums: [{ id: B, name: 'Untitled', count: 9 }, { id: A, name: 'Frame', count: 50 }], default: A });
+  await p.albums();
+  assert.equal(api.calls.length, 2);
+  c.t += 11 * 60 * 1000;
+  api.fail = true;
+  assert.deepEqual((await p.albums()).albums.length, 2); // Immich down: last good list
+  await assert.rejects(createPhotos({ request: api }).albums(), /down/);
+});
+
+test('route: albums list, album query checked and passed through', async function () {
+  var api = fakeAlbums({ [A]: [asset(1)], [B]: [asset(5)] }, { owned: [{ id: A, albumName: 'Frame', assetCount: 1 }], shared: [] });
+  var p = createPhotos({ request: api, album: A });
+  var l = await call(p, 'GET', '/api/photos/albums');
+  assert.equal(l.status, 200);
+  assert.deepEqual(l.body, { albums: [{ id: A, name: 'Frame', count: 1 }], default: A });
+  assert.equal((await call(p, 'GET', '/api/photos?album=../x')).status, 400);
+  var r = await call(p, 'GET', '/api/photos?day=2026-11-02&album=' + B);
+  assert.equal(r.body.album, B);
+  assert.equal(r.body.photos[0].id, id(5));
+  var fresh = createPhotos({ request: fakeAlbums({ [B]: [asset(5)] }, {}), album: A });
+  assert.equal((await call(fresh, 'GET', '/api/photos/' + id(5) + '?day=2026-11-02&album=' + B)).status, 200);
+  api.fail = true;
+  assert.equal((await call(createPhotos({ request: api }), 'GET', '/api/photos/albums')).status, 502);
 });

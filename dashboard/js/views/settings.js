@@ -1,7 +1,7 @@
 // Settings: every option the frame itself can change. Saved in localStorage (see settings.js).
 (function () {
   'use strict';
-  var V = { el: null };
+  var V = { el: null, albums: null, albumsErr: false };
   var S = function () { return App.settings; };
 
   function hourLabel(h) { return App.fmt.hour(new Date(2000, 0, 1, h)); }
@@ -15,12 +15,27 @@
   function row(name, note, body) {
     return '<div class="st-row"><div class="st-name"><b>' + name + '</b>' + (note ? '<small>' + note + '</small>' : '') + '</div>' + body + '</div>';
   }
-  function btns(attr, items) {
-    return '<div class="st-btns">' + items.map(function (i) {
-      return '<button ' + attr + '="' + i[0] + '"' + (i[2] ? ' class="is-on"' : '') + '>' + App.esc(i[1]) + '</button>';
-    }).join('') + '</div>';
-  }
   function card(title, rows) { return '<section class="st-card"><div class="label">' + title + '</div>' + rows.join('') + '</section>'; }
+
+  // Album picker: "On this day" first, then the server's albums, newest change first. With nothing picked, the
+  // server's default is shown as chosen.
+  function albumCard() {
+    var cur = S().get('photoAlbum'), a = V.albums;
+    if (!a) return '<section class="st-card st-card--wide"><div class="label">Photo album</div><p class="st-note">' + (V.albumsErr ? 'Couldn’t reach the photo library.' : 'Loading albums…') + '</p></section>';
+    var on = cur || a.default || 'memories';
+    var items = [{ id: 'memories', name: 'On this day', note: 'memories from past years' }].concat(a.albums.map(function (x) {
+      return { id: x.id, name: x.name, note: x.count + (x.count === 1 ? ' item' : ' items') };
+    }));
+    return '<section class="st-card st-card--wide"><div class="label">Photo album</div><div class="st-albums">' + items.map(function (x) {
+      return '<button data-album="' + App.esc(x.id) + '"' + (x.id === on ? ' class="is-on"' : '') + '><b>' + App.esc(x.name) + '</b><small>' + App.esc(x.note) + '</small></button>';
+    }).join('') + '</div></section>';
+  }
+
+  function loadAlbums() {
+    App.photoAlbums().then(function (a) { V.albums = a; V.albumsErr = false; }, function () { V.albumsErr = true; }).then(function () {
+      if (V.el && V.el.querySelector('.settings')) paint();
+    });
+  }
 
   function diagOn() { try { return localStorage.getItem('hq-diag') === '1'; } catch (e) { return false; } }
 
@@ -47,48 +62,47 @@
         row('Temperature', 'weather only', seg('tempF', [[false, '°C'], [true, '°F']], g('tempF'))),
         row('Diagnostics overlay', 'applies after a reload', seg('diag', [[true, 'On'], [false, 'Off']], diagOn()))
       ]) +
-      card('Until reload', [
-        row('Time of day', 'demo clock', btns('data-time', [['7:10', '7:10 AM'], ['15:18', '3:18 PM'], ['19:45', '7:45 PM'], ['23:40', '11:40 PM'], ['real', 'Real time']])),
-        row('Calendar data', '', seg('cal', [['normal', 'Normal'], ['empty', 'Empty'], ['busy', 'Busy']], App.calMode)),
-        row('Mode', '', btns('data-mode', [['ambient', 'Ambient'], ['night', 'Night']]))
-      ]) +
-      card('Test alerts', [
-        btns('data-alert', [['doorbell', 'Doorbell'], ['leak', 'Water leak'], ['garage', 'Garage open'], ['package', 'Package']])
-      ]) +
+      albumCard() +
       '</div></div>';
   }
 
-  function paint() { var top = V.el.scrollTop; V.el.innerHTML = html(); V.el.scrollTop = top; }
+  function paint() {
+    var grid = V.el.querySelector('.st-grid'), list = V.el.querySelector('.st-albums');
+    var top = grid ? grid.scrollTop : 0, listTop = list ? list.scrollTop : 0;
+    V.el.innerHTML = html();
+    grid = V.el.querySelector('.st-grid'); list = V.el.querySelector('.st-albums');
+    if (grid) grid.scrollTop = top;
+    if (list) list.scrollTop = listTop;
+  }
 
   function parse(v) { return v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v; }
 
   function click(e) {
     var b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.album) {
+      if (b.classList.contains('is-on')) return;
+      S().set('photoAlbum', b.dataset.album);
+      App.toast('Showing ' + App.esc(b.querySelector('b').textContent), { icon: 'photo' });
+      return paint();
+    }
     var group = b.closest('[data-key]');
     if (group) {
       var key = group.dataset.key, v = parse(b.dataset.v);
       if (key === 'diag') {
         try { localStorage.setItem('hq-diag', v ? '1' : '0'); } catch (err) { /* ignore */ }
         App.toast('Diagnostics ' + (v ? 'on' : 'off') + ' after the next reload', { icon: 'check' });
-      } else if (key === 'cal') { App.calMode = v; App.rerender(); return; }
-      else S().set(key, v);
+      } else S().set(key, v);
       return paint();
     }
     if (b.hasAttribute('data-reset')) { S().reset(); paint(); App.toast('Settings reset', { icon: 'undo' }); return; }
-    if (b.dataset.time) {
-      if (b.dataset.time === 'real') App.setTime(null);
-      else { var p = b.dataset.time.split(':'); App.setTime(+p[0], +p[1]); }
-      return;
-    }
-    if (b.dataset.mode) return App.setMode(b.dataset.mode);
-    if (b.dataset.alert) ({ doorbell: App.doorbell, leak: App.leak, garage: App.garageOpenAlert, package: App.packageNotice })[b.dataset.alert]();
   }
 
   App.register('settings', {
     show: function (el) {
       if (V.el !== el) { V.el = el; el.addEventListener('click', click); }
       paint();
+      loadAlbums();
     }
   });
 })();

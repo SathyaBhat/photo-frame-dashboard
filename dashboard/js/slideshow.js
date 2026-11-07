@@ -5,7 +5,7 @@
 
   // Immich photos (they have an id) come through the frame server's proxy; mock ones (a seed) from picsum.
   function src(p, big) {
-    if (p.id) return 'api/photos/' + encodeURIComponent(p.id) + '?day=' + p.day + (big ? '' : '&size=thumbnail');
+    if (p.id) return 'api/photos/' + encodeURIComponent(p.id) + '?day=' + p.day + (p.album ? '&album=' + encodeURIComponent(p.album) : '') + (big ? '' : '&size=thumbnail');
     var w = p.o === 'p' ? 800 : 1600, h = p.o === 'p' ? 1200 : 1000;
     if (!big) { w = Math.round(w / 2); h = Math.round(h / 2); }
     return App.img(p.seed, w, h);

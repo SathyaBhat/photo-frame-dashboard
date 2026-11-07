@@ -12,9 +12,16 @@
 .st-name b { font-size: 20px; font-weight: 700; }
 .st-name small { font-size: var(--fs-min); color: var(--mute); }
 .st-row .seg { align-self: flex-start; max-width: 100%; }
-.st-btns { display: flex; flex-wrap: wrap; gap: 8px; }
-.st-btns button {
-  min-height: var(--tap); padding: 0 18px; border-radius: 14px; background: var(--paper-2);
-  font-size: 17px; font-weight: 700;
+.st-note { font-size: 17px; color: var(--mute); }
+
+/* Album picker: a scrolling list of finger-sized buttons across both columns */
+.st-card--wide { grid-column: 1 / -1; }
+.st-albums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-height: 300px; overflow-y: auto; }
+.st-albums button {
+  min-height: var(--tap); padding: 10px 16px; border-radius: 14px; background: var(--paper-2);
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; text-align: left;
 }
-.st-btns button:active { background: var(--ink); color: var(--paper); }
+.st-albums button b { font-size: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.st-albums button small { font-size: var(--fs-min); color: var(--mute); }
+.st-albums button.is-on { background: var(--ink); color: var(--paper); }
+.st-albums button.is-on small { color: var(--paper); opacity: .7; }
