@@ -27,6 +27,20 @@ test('drops videos, archived, hidden, trashed, duplicates and bad ids', function
   assert.deepEqual(out.map(function (p) { return p.id; }), [id(1)]);
 });
 
+test('drops screenshots: any PNG, and files named like a screenshot', function () {
+  var out = buildPhotos([memory([
+    asset(1, { originalFileName: 'IMG_1234.HEIC', originalMimeType: 'image/heic' }),
+    asset(2, { originalFileName: 'Screenshot_2019-11-08-15-50-12.png', originalMimeType: 'image/png' }),
+    asset(3, { originalFileName: 'IMG_0042.PNG' }),
+    asset(4, { originalFileName: 'export', originalMimeType: 'image/png' }),
+    asset(5, { originalFileName: 'Screenshot_20190101-101010_Messages.jpg', originalMimeType: 'image/jpeg' }),
+    asset(6, { originalFileName: 'Screen Shot 2020-01-01 at 10.00.00.jpg' }),
+    asset(7, { originalFileName: 'IMG-20191108-WA0001.jpg', originalMimeType: 'image/jpeg' })
+  ])]);
+  assert.deepEqual(out.map(function (p) { return p.id; }), [id(1), id(7)]);
+  assert.deepEqual(buildAlbumPhotos([asset(8, { originalMimeType: 'image/png' }), asset(9)]).map(function (p) { return p.id; }), [id(9)]);
+});
+
 test('caps the list at 200 photos', function () {
   var many = [];
   for (var i = 0; i < 250; i++) many.push(asset(i));

@@ -30,11 +30,21 @@ export function placeOf(exif) {
   return parts.join(', ');
 }
 
-// One Immich asset -> the slideshow's photo shape, or null to skip it. Images only, nothing archived, hidden or trashed.
+// Screenshots (of chats, SMS codes, web pages) don't belong on the frame. Phones save them as PNG (Android's
+// Screenshot_*.png, iOS's IMG_*.PNG) and no camera in this library writes PNG, so every PNG is skipped, plus any file
+// named like a screenshot (some phones save JPEG ones).
+export function isScreenshot(a) {
+  var name = String(a.originalFileName || '');
+  return a.originalMimeType === 'image/png' || /\.png$/i.test(name) || /screen[\s_-]?(shot|cap)/i.test(name);
+}
+
+// One Immich asset -> the slideshow's photo shape, or null to skip it. Images only, nothing archived, hidden or trashed,
+// and no screenshots.
 // localDateTime is the wall-clock time where the photo was taken, so its date part is the photo's day.
 function toPhoto(a, place) {
   if (!a || !validId(a.id) || a.type !== 'IMAGE' || a.isTrashed || a.isArchived) return null;
   if (a.visibility && a.visibility !== 'timeline') return null;
+  if (isScreenshot(a)) return null;
   var date = String(a.localDateTime || a.fileCreatedAt || '').slice(0, 10);
   if (!validDay(date)) return null;
   return { id: a.id, o: a.height > a.width ? 'p' : 'l', date: date, place: place || '', fav: !!a.isFavorite, tag: 'year-' + date.slice(0, 4) };
