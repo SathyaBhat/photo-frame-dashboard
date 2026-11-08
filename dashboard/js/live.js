@@ -281,6 +281,10 @@
   var photosDay = '';
   var photosAlbum = null; // the photoAlbum setting the current photos were asked for
   var photosSeq = 0;      // only the newest request may replace the photos
+  // The slideshows would start on the mock photos in data.js and keep one on screen until the next slide. Until the
+  // first answer (or 6 s) they wait; a 503, an error or a timeout then leaves them on the mock photos as before.
+  App.photosPending = true;
+  function photosSettled() { App.photosPending = false; }
 
   function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 
@@ -303,7 +307,7 @@
       if (e.message === 'HTTP 503') return; // server has no Immich configured: stay on mock
       if (picked) App.toast('Couldn’t load that album', { icon: 'photo' });
       console.warn('HomeHQ live photos failed, keeping current photos:', e.message);
-    });
+    }).then(function () { if (seq === photosSeq) photosSettled(); });
   }
 
   // Albums for the Settings picker, newest change first, fetched when Settings opens and kept for 10 minutes.
@@ -340,6 +344,7 @@
     setInterval(loadCalendar, CAL_MS);
     setInterval(loadWeather, WEATHER_MS);
     loadPhotos();
+    setTimeout(photosSettled, 6000);
     setInterval(function () { loadPhotos(); }, PHOTOS_MS);
     // A new album picked in Settings, or settings reset: fetch its photos now.
     App.on('data', function () { if (photosAlbum !== null && App.settings.get('photoAlbum') !== photosAlbum) loadPhotos(true); });

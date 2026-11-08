@@ -90,6 +90,7 @@
     return null;
   };
   S.pick = function () {
+    if (App.photosPending) return null; // the real photos are on their way (see live.js)
     var layout = this.o.layout, n = this.count++;
     var first = this.take();
     if (!first) return null;
@@ -143,7 +144,10 @@
 
   S.next = function () {
     var s = this.pick();
-    if (!s) return;
+    if (!s) {
+      if (App.photosPending) { var self = this; clearInterval(this.timer); this.timer = setTimeout(function () { self.next(); }, 300); }
+      return;
+    }
     if (this.current) this.history.push(this.current);
     if (this.history.length > 50) this.history.shift(); // back only needs the recent few; the frame runs for days
     this.render(s);
