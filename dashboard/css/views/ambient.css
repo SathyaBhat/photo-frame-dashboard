@@ -2,6 +2,9 @@
 .ambient { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 65; background: #000; display: none; color: #fff; cursor: pointer; }
 .stage[data-mode="ambient"] .ambient { display: block; }
 .amb-stage { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+/* Photo caption at the top-left, clear of the clock at the bottom */
+.ambient .cap { top: 40px; bottom: auto; left: 60px; opacity: .85; text-shadow: 0 1px 12px rgba(0, 0, 0, .6); }
+.ambient .cap-date { font-size: 44px; }
 .amb-scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 60%; background: linear-gradient(0deg, rgba(0, 0, 0, .75), rgba(0, 0, 0, 0)); pointer-events: none; }
 .amb-info { position: absolute; left: 60px; right: 60px; bottom: 48px; display: flex; justify-content: space-between; align-items: flex-end; }
 .amb-time { font-size: 230px; line-height: .78; letter-spacing: -.04em; }

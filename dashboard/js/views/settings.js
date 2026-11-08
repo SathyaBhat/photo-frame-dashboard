@@ -55,7 +55,7 @@
       ]) +
       card('Photos', [
         row('Time per slide', 'all photo views', seg('slideSecs', [[0, 'Default'], [10, '10 s'], [20, '20 s'], [30, '30 s'], [60, '1 min']], g('slideSecs'))),
-        row('Captions', 'Photos page', seg('captions', [[true, 'On'], [false, 'Off']], g('captions')))
+        row('Captions', 'Photos page and photo frame', seg('captions', [[true, 'On'], [false, 'Off']], g('captions')))
       ]) +
       card('Display', [
         row('Clock', '', seg('clock24', [[false, '12-hour'], [true, '24-hour']], g('clock24'))),
